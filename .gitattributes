@@ -1,0 +1,6 @@
+* text=auto
+*.js text eol=lf
+*.cjs text eol=lf
+*.sql text eol=lf
+*.webp binary
+*.ttf binary

@@ -1,0 +1,13 @@
+data
+qa
+supabase
+*.log
+qa*.cjs
+prepare-assets.cjs
+server.cjs
+api.cjs
+inventory.cjs
+photos.cjs
+scripts
+*.md
+.env*

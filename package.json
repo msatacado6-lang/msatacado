@@ -1,0 +1,15 @@
+{
+  "name": "ms-atacado-prototipo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node server.cjs",
+    "start": "node server.cjs",
+    "check": "node --check dist/app.js && node --check dist/account.js && node --check cloud-api.cjs",
+    "dev:cloud": "node scripts/start-cloud-preview.cjs",
+    "test": "node qa-accounts.cjs && node qa-inventory.cjs && node qa-photos.cjs"
+  },
+  "dependencies": {
+    "sharp": "0.35.5"
+  }
+}
