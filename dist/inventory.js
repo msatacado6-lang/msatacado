@@ -11,8 +11,11 @@ document.addEventListener('click',e=>{
  if(button.hasAttribute('data-remove-size'))button.closest('.stock-row').remove();
  // Guard the legacy cart controls before they mutate quantities.
  const id=document.querySelector('[data-add]')?.dataset.add;
- if(button.hasAttribute('data-size')){quantity=1;document.querySelector('#product-qty').textContent=1;}
- if(button.hasAttribute('data-add')&&selectedSize&&quantity+inCart(id,selectedSize)>availableStock(id,selectedSize)){e.stopImmediatePropagation();toast('Quantidade acima do estoque disponível neste tamanho.');}
- if(button.dataset.qty==='1'&&selectedSize&&quantity+1+inCart(id,selectedSize)>availableStock(id,selectedSize)){e.stopImmediatePropagation();toast('Você atingiu o estoque disponível deste tamanho.');}
+ if(button.hasAttribute('data-size')){const remaining=Math.min(99-inCart(id,button.dataset.size),availableStock(id,button.dataset.size)-inCart(id,button.dataset.size));quantity=Math.max(1,Math.min(quantity,remaining));const input=document.querySelector('#product-qty');input.value=quantity;input.max=Math.max(1,remaining);}
+ if(button.hasAttribute('data-add')&&selectedSize&&quantity+inCart(id,selectedSize)>Math.min(99,availableStock(id,selectedSize))){e.stopImmediatePropagation();toast('Quantidade acima do estoque disponível neste tamanho.');}
+ if(button.dataset.qty==='1'&&selectedSize&&quantity+1+inCart(id,selectedSize)>Math.min(99,availableStock(id,selectedSize))){e.stopImmediatePropagation();toast('Você atingiu o estoque disponível deste tamanho.');}
  if(button.hasAttribute('data-cart-change')&&button.dataset.delta==='1'){const item=cart[Number(button.dataset.cartChange)];if(item.qty>=availableStock(item.id,item.size)){e.stopImmediatePropagation();toast('Você atingiu o estoque disponível deste tamanho.');}}
 },true);
+
+document.addEventListener('input',e=>{if(e.target.id!=='product-qty')return;const value=Number(e.target.value);if(Number.isInteger(value)&&value>0)quantity=value;});
+document.addEventListener('change',e=>{if(e.target.id!=='product-qty')return;const id=document.querySelector('[data-add]').dataset.add;const limit=selectedSize?Math.max(1,Math.min(99,availableStock(id,selectedSize))-inCart(id,selectedSize)):99;const value=Number(e.target.value);quantity=Math.max(1,Math.min(limit,Number.isFinite(value)?Math.floor(value):1));e.target.value=quantity;});
