@@ -11,6 +11,15 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
  assert.equal((await call('setup','POST',{name:'Outro',email:'other@example.test',password})).status,403);
  const a=await call('register','POST',{name:'Cliente Ana',email:'ana@example.test',password,role:'admin'});assert.equal(a.data.user.role,'customer');
  const b=await call('register','POST',{name:'Cliente Bia',email:'bia@example.test',password});
+ assert.equal((await call('admin/login','POST',{email:'ana@example.test',password})).status,403);
+ const normalAdmin=await call('login','POST',{email:'admin@example.test',password,scope:'admin'});
+ assert.equal((await call('session','GET',null,normalAdmin.cookie)).data.adminAuthenticated,false);
+ assert.equal((await call('admin/overview','GET',null,normalAdmin.cookie)).status,403);
+ assert.equal((await call('admin/products/wide','PATCH',{},normalAdmin.cookie)).status,403);
+ const explicitAdmin=await call('admin/login','POST',{email:'admin@example.test',password});
+ assert.equal((await call('session','GET',null,explicitAdmin.cookie)).data.adminAuthenticated,true);
+ assert.equal((await call('admin/overview','GET',null,explicitAdmin.cookie)).status,200);
+
  assert.equal((await call('admin/overview','GET',null,a.cookie)).status,403);
  assert.equal((await call('orders')).status,401);
  assert.equal((await call('orders','POST',{items:[{id:'wide',size:'38',qty:5}]},a.cookie)).status,400);
@@ -29,6 +38,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
  await p.evaluate(()=>location.hash='admin/produtos');await p.waitForSelector('[data-product]');await p.$eval('[data-product="wide"] [name=name]',e=>e.value='Wide Leg editada');await p.click('[data-product="wide"] button:not([type="button"])');await p.waitForFunction(()=>document.querySelector('#toast').textContent==='Catálogo atualizado.');assert.equal((await call('products')).data[0].name,'Wide Leg editada');
  await p.setViewport({width:390,height:844,isMobile:true});for(const page of ['admin','admin/produtos','admin/clientes','admin/pedidos','conta','conta/dados','inicio','catalogo']){await p.evaluate(page=>location.hash=page,page);await p.waitForFunction(()=>!document.querySelector('main').textContent.includes('Carregando sua área'));await new Promise(r=>setTimeout(r,200));assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow '+page);}
  await p.evaluate(()=>location.hash='admin');await p.waitForSelector('.stats');await p.screenshot({path:'qa/admin-mobile.png',fullPage:true});assert.deepEqual(errors,[]);
+ await p.goto(base+'/#conta');await p.waitForSelector('.account-sidebar');await p.click('[data-logout]');await p.waitForSelector('[data-account-form="login"]');await p.type('[name=email]','admin@example.test');await p.type('[name=password]',password);await p.click('[data-account-form] button');await p.waitForSelector('.account-sidebar');assert.equal(await p.$$eval('a[href^="#admin"]',x=>x.length),0);await p.goto(base+'/msadm');await p.waitForSelector('[data-account-form="login"]');assert.equal(await p.$('.stats'),null);await p.type('[name=email]','admin@example.test');await p.type('[name=password]',password);await p.click('[data-account-form] button');await p.waitForSelector('.stats');assert.equal(new URL(p.url()).pathname,'/msadm');
  console.log('PASS: auth, isolated orders, minimum 6, roles, setup lock, logout, origin guard, cart save, reload, catalog edit, desktop/mobile.');
  }finally{if(browser)await browser.close();server.kill();await new Promise(r=>server.once('exit',r));fs.rmSync(data,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1});

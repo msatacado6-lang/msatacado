@@ -27,22 +27,23 @@ module.exports=async(req,res)=>{
  if(endpoint==='/api/products'&&method==='GET')return json(200,await rpc('products'));
  if(endpoint==='/api/setup')fail(404,'Rota não encontrada.');
  const cookie=(token,age)=>`ms_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${age}${process.env.NODE_ENV==='production'?'; Secure':''}`;
- if(['/api/login','/api/register'].includes(endpoint)&&method==='POST'){
+ if(['/api/login','/api/register','/api/admin/login'].includes(endpoint)&&method==='POST'){
   const ip=process.env.VERCEL?req.headers['x-vercel-forwarded-for']||req.socket?.remoteAddress:req.socket?.remoteAddress;
   const rate=await rpc('rate',{key:digest(String(ip||'unknown'))});if(!rate.allowed)fail(429,'Muitas tentativas. Aguarde um minuto.');
   const email=clean(body.email,3,160).toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail(400,'Informe um e-mail válido.');
   if(typeof body.password!=='string'||body.password.length<10||body.password.length>128)fail(400,'Use uma senha entre 10 e 128 caracteres.');
   let user;
-  if(endpoint==='/api/login'){user=await rpc('login_lookup',{email});const stored=user?.password||hash('invalid-password');if(!crypto.timingSafeEqual(Buffer.from(hash(body.password,stored.split(':')[0])),Buffer.from(stored))||!user)fail(401,'E-mail ou senha incorretos.');}
+  if(endpoint==='/api/login'||endpoint==='/api/admin/login'){user=await rpc('login_lookup',{email});const stored=user?.password||hash('invalid-password');if(!crypto.timingSafeEqual(Buffer.from(hash(body.password,stored.split(':')[0])),Buffer.from(stored))||!user)fail(401,'E-mail ou senha incorretos.');}
   else user=await rpc('register',{id:crypto.randomUUID(),name:clean(body.name,2,100),email,password:hash(body.password)});
-  const t=crypto.randomBytes(32).toString('hex');await rpc('create_session',{token:digest(t),user_id:user.id,expires:Date.now()+86400000},sessionToken);res.setHeader('Set-Cookie',cookie(t,86400));return json(200,{user:{id:user.id,name:user.name,email:user.email,role:user.role}});
+  if(endpoint==='/api/admin/login'&&user.role!=='admin')fail(403,'Acesso exclusivo da administração.');
+  const t=crypto.randomBytes(32).toString('hex');await rpc('create_session',{token:digest(t),user_id:user.id,scope:endpoint==='/api/admin/login'?'admin':'customer',expires:Date.now()+86400000},sessionToken);res.setHeader('Set-Cookie',cookie(t,86400));return json(200,{user:{id:user.id,name:user.name,email:user.email,role:user.role}});
  }
  if(endpoint==='/api/logout'&&method==='POST'){await rpc('logout',{},sessionToken);res.setHeader('Set-Cookie',cookie('',0));return json(200,{ok:true});}
  if(endpoint==='/api/profile'&&method==='PATCH')return json(200,await rpc('profile',{name:clean(body.name,2,100)},sessionToken));
  if(endpoint==='/api/orders'&&method==='GET')return json(200,await rpc('orders',{},sessionToken));
  if(endpoint==='/api/orders'&&method==='POST')return json(201,await rpc('order_create',{items:body.items},sessionToken));
  if(endpoint.startsWith('/api/admin/')){
-  const {user}=await rpc('session',{},sessionToken);if(!user)fail(401,'Entre na sua conta para continuar.');if(user.role!=='admin')fail(403,'Acesso exclusivo da administração.');
+  const {user,adminAuthenticated}=await rpc('session',{},sessionToken);if(!user)fail(401,'Entre na sua conta para continuar.');if(user.role!=='admin'||!adminAuthenticated)fail(403,'Acesso exclusivo da administração.');
   if(endpoint==='/api/admin/overview'&&method==='GET')return json(200,await rpc('overview',{},sessionToken));
   if(/^\/api\/admin\/orders\/[^/]+$/.test(endpoint)&&method==='PATCH')return json(200,await rpc('order_status',{id:endpoint.split('/')[4],status:body.status},sessionToken));
   if(/^\/api\/admin\/products\/[^/]+$/.test(endpoint)&&method==='PATCH'){if(!['Calças','Shorts'].includes(body.type))fail(400,'Categoria inválida.');return json(200,await rpc('product_update',{...body,id:endpoint.split('/')[4],name:clean(body.name,2,100),wash:clean(body.wash,2,80),description:clean(body.description,10,1500)},sessionToken));}

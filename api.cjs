@@ -11,6 +11,7 @@ const clean=(v,min,max)=>typeof v==='string'&&v.trim().length>=min&&v.trim().len
 const hash=(p,s=crypto.randomBytes(16).toString('hex'))=>s+':'+crypto.scryptSync(p,s,64).toString('hex');
 const digest=t=>crypto.createHash('sha256').update(t).digest('hex');
 const publicUser=u=>u?{id:u.id,name:u.name,email:u.email,role:u.role}:null;
+if(!db.prepare('PRAGMA table_info(sessions)').all().some(c=>c.name==='access_scope'))db.exec("ALTER TABLE sessions ADD COLUMN access_scope TEXT NOT NULL DEFAULT 'customer'");
 const attempts=new Map();
 module.exports=async function api(req,res){
  const json=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value))};
@@ -21,20 +22,21 @@ module.exports=async function api(req,res){
  let b={};if(!['GET','HEAD'].includes(req.method)){if(!req.headers['content-type']?.startsWith('application/json'))fail(415,'Envie JSON.');let raw='';for await(const c of req){raw+=c;if(Buffer.byteLength(raw)>(req.url.startsWith('/api/admin/products/')&&req.url.endsWith('/photos')?11300000:32768))fail(413,'Dados muito grandes.');}try{b=JSON.parse(raw||'{}')}catch{fail(400,'JSON inválido.')}if(!b||typeof b!=='object'||Array.isArray(b))fail(400,'Dados inválidos.');}
  const endpoint=req.url.split('?')[0],method=req.method;
  const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('ms_session='))?.slice(11);
- const user=token?db.prepare('SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>?').get(digest(token),Date.now()):null;
+ const user=token?db.prepare('SELECT u.*,s.access_scope FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>?').get(digest(token),Date.now()):null;
  const auth=()=>{if(!user)fail(401,'Entre na sua conta para continuar.')};
  // First-admin provisioning is never exposed by the production web API.
  const setup=()=>process.env.NODE_ENV!=='production'&&!db.prepare("SELECT id FROM users WHERE role='admin'").get();
- if(endpoint==='/api/session'&&method==='GET')return json(200,{user:publicUser(user),setupNeeded:setup()});
+ if(endpoint==='/api/session'&&method==='GET')return json(200,{user:publicUser(user),setupNeeded:setup(),adminAuthenticated:user?.role==='admin'&&user?.access_scope==='admin'});
  if(endpoint==='/api/products'&&method==='GET')return json(200,db.prepare('SELECT * FROM products ORDER BY rowid').all().map(inventory.read).map(photos.read));
- if(['/api/login','/api/register','/api/setup'].includes(endpoint)&&method==='POST'){
+ if(['/api/login','/api/register','/api/setup','/api/admin/login'].includes(endpoint)&&method==='POST'){
   const key=req.socket.remoteAddress;let rate=attempts.get(key);if(!rate||rate.until<Date.now())rate={n:0,until:Date.now()+60000};attempts.set(key,rate);if(++rate.n>20)fail(429,'Muitas tentativas. Aguarde um minuto.');
   const email=clean(b.email,3,160).toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail(400,'Informe um e-mail válido.');
   if(typeof b.password!=='string'||b.password.length<10||b.password.length>128)fail(400,'Use uma senha entre 10 e 128 caracteres.');
   let account;
-  if(endpoint==='/api/login'){account=db.prepare('SELECT * FROM users WHERE email=?').get(email);const stored=account?.password||hash('invalid-password');if(!crypto.timingSafeEqual(Buffer.from(hash(b.password,stored.split(':')[0])),Buffer.from(stored))||!account)fail(401,'E-mail ou senha incorretos.');}
+  if(endpoint==='/api/login'||endpoint==='/api/admin/login'){account=db.prepare('SELECT * FROM users WHERE email=?').get(email);const stored=account?.password||hash('invalid-password');if(!crypto.timingSafeEqual(Buffer.from(hash(b.password,stored.split(':')[0])),Buffer.from(stored))||!account)fail(401,'E-mail ou senha incorretos.');}
   else{if(endpoint==='/api/setup'&&!setup())fail(403,'A administração já foi configurada.');const name=clean(b.name,2,100);if(db.prepare('SELECT id FROM users WHERE email=?').get(email))fail(409,'Este e-mail já está cadastrado.');account={id:crypto.randomUUID(),name,email,role:endpoint==='/api/setup'?'admin':'customer'};db.prepare('INSERT INTO users VALUES(?,?,?,?,?,?)').run(account.id,name,email,hash(b.password),account.role,new Date().toISOString());}
-  if(token)db.prepare('DELETE FROM sessions WHERE token=?').run(digest(token));db.prepare('DELETE FROM sessions WHERE expires<?').run(Date.now());const t=crypto.randomBytes(32).toString('hex');db.prepare('INSERT INTO sessions VALUES(?,?,?)').run(digest(t),account.id,Date.now()+86400000);res.setHeader('Set-Cookie',`ms_session=${t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`);return json(200,{user:publicUser(account)});
+  if(endpoint==='/api/admin/login'&&account.role!=='admin')fail(403,'Acesso exclusivo da administração.');
+  if(token)db.prepare('DELETE FROM sessions WHERE token=?').run(digest(token));db.prepare('DELETE FROM sessions WHERE expires<?').run(Date.now());const t=crypto.randomBytes(32).toString('hex');db.prepare('INSERT INTO sessions(token,user_id,expires,access_scope) VALUES(?,?,?,?)').run(digest(t),account.id,Date.now()+86400000,['/api/admin/login','/api/setup'].includes(endpoint)?'admin':'customer');res.setHeader('Set-Cookie',`ms_session=${t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`);return json(200,{user:publicUser(account)});
  }
  if(endpoint==='/api/logout'&&method==='POST'){if(token)db.prepare('DELETE FROM sessions WHERE token=?').run(digest(token));res.setHeader('Set-Cookie','ms_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return json(200,{ok:true});}
  if(endpoint==='/api/profile'&&method==='PATCH'){auth();const name=clean(b.name,2,100);db.prepare('UPDATE users SET name=? WHERE id=?').run(name,user.id);return json(200,{user:{...publicUser(user),name}});}
@@ -45,7 +47,7 @@ module.exports=async function api(req,res){
  }
  if(endpoint==='/api/orders'&&method==='GET'){auth();return json(200,db.prepare('SELECT * FROM orders WHERE user_id=? ORDER BY created DESC').all(user.id).map(o=>({...o,items:JSON.parse(o.items)})));}
  if(endpoint.startsWith('/api/admin/')){
-  auth();if(user.role!=='admin')fail(403,'Acesso exclusivo da administração.');
+  auth();if(user.role!=='admin'||user.access_scope!=='admin')fail(403,'Acesso exclusivo da administração.');
   if(endpoint.startsWith('/api/admin/products/')&&endpoint.endsWith('/photos'))return json(200,await photos.mutate(endpoint.split('/')[4],method,b));
   if(endpoint==='/api/admin/overview'&&method==='GET')return json(200,{orders:db.prepare('SELECT o.*,u.name,u.email FROM orders o JOIN users u ON u.id=o.user_id ORDER BY o.created DESC').all().map(o=>({...o,items:JSON.parse(o.items)})),customers:db.prepare("SELECT id,name,email,created FROM users WHERE role='customer' ORDER BY created DESC").all()});
   if(endpoint.startsWith('/api/admin/orders/')&&method==='PATCH'){if(!['Salvo','Em análise','Concluído','Cancelado'].includes(b.status))fail(400,'Situação inválida.');inventory.status(endpoint.split('/').pop(),b.status);return json(200,{ok:true});}

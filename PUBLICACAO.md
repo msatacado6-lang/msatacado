@@ -2,7 +2,7 @@
 
 Loja: https://msatacado-loja.vercel.app
 
-Painel (acesso direto, sem links na área pública): https://msatacado-loja.vercel.app/#admin
+Painel (acesso direto, sem links na área pública): https://msatacado-loja.vercel.app/msadm
 
 Projeto Vercel: msatacado-loja, conta gabs-projects-d4b32cc2.
 Supabase: qdjjcewniayemmsiinec, nome msatacado.
@@ -31,3 +31,5 @@ O site está online, mas continua uma prévia: catálogo ilustrativo, preços n�
 ## Verificação executada
 
 Testes na integração Supabase: autenticação, autorização, bloqueio da chave pública, compra concorrente do último estoque, cancelamento sem devolução duplicada, armazenamento de imagens e restrição de origem. Testes no endereço publicado: cookie seguro, login/reload/logout, painel, bloqueio de comprador, cadastro de administrador desativado, ausência de links públicos para o painel e layout mobile. Contas, pedidos e produto temporários de QA foram excluídos antes da entrega. Hashes das contas reais comparados ao SQLite original sem revelar valores.
+
+A autenticação administrativa usa /api/admin/login e sessões com escopo admin. O login comum em Minha conta gera somente sessão customer, inclusive para o e-mail do administrador. /msadm exige autenticação administrativa; compradores nunca podem criar essa sessão. Sessões anteriores à separação precisam de novo login administrativo.
