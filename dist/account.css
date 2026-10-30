@@ -3,3 +3,10 @@
 .dashboard-banner .btn{color:#1c1a17}@media(max-width:800px){.header-main .account-link{grid-column:2;grid-row:1;justify-self:end;margin-right:58px}.header-main .bag{grid-column:2;grid-row:1;justify-self:end}}
 .admin-auth{padding-top:30px;padding-bottom:35px;align-items:start}.admin-auth .auth-panel{padding-top:0}.admin-auth .auth-panel .eyebrow{margin-bottom:10px}.admin-auth .auth-panel h2{margin:8px 0;font-size:30px}.admin-auth .auth-panel form{margin:16px 0}.admin-auth .field{margin-bottom:12px;gap:5px}.admin-auth .field input{padding:10px 13px}.admin-auth .form-error{min-height:0;margin:10px 0}.admin-auth .auth-panel .account-notice{margin:15px 0}.admin-auth .auth-panel>a{margin:6px 0}.admin-auth .auth-intro h1{font-size:48px}.admin-auth .auth-intro img{height:170px}
 @media(max-width:800px){.admin-auth .auth-panel{grid-row:1}.admin-auth .auth-intro{display:none}.admin-auth{padding-top:25px}}
+.admin-route body>.announcement,.admin-route body>header,.admin-route body>footer,.admin-route body>.skip{display:none}
+.admin-login{min-height:100svh;display:grid;place-items:center;padding:24px}
+.admin-login form{width:100%;max-width:360px}
+.admin-login .field{margin-bottom:20px;gap:8px}
+.admin-login .field input{padding:14px;font-size:16px}
+.admin-login .btn{width:100%;margin-top:6px}
+.admin-login .form-error:empty{display:none}
