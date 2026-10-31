@@ -17,6 +17,7 @@ const publicUser=u=>u?{id:u.id,name:u.name,email:u.email,role:u.role}:null;
 if(!db.prepare('PRAGMA table_info(sessions)').all().some(c=>c.name==='access_scope'))db.exec("ALTER TABLE sessions ADD COLUMN access_scope TEXT NOT NULL DEFAULT 'customer'");
 db.exec('CREATE TABLE IF NOT EXISTS categories(id TEXT PRIMARY KEY,name TEXT NOT NULL COLLATE NOCASE UNIQUE)');
 for(const p of db.prepare('SELECT DISTINCT type FROM products').all())db.prepare('INSERT OR IGNORE INTO categories VALUES(?,?)').run(crypto.randomUUID(),p.type);
+db.exec('CREATE TABLE IF NOT EXISTS archived_products(product_id TEXT PRIMARY KEY)');
 const attempts=new Map();
 module.exports=async function api(req,res){
  const json=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value))};
@@ -32,8 +33,8 @@ module.exports=async function api(req,res){
  // First-admin provisioning is never exposed by the production web API.
  const setup=()=>process.env.NODE_ENV!=='production'&&!db.prepare("SELECT id FROM users WHERE role='admin'").get();
  if(endpoint==='/api/session'&&method==='GET')return json(200,{user:publicUser(user),setupNeeded:setup(),adminAuthenticated:user?.role==='admin'&&user?.access_scope==='admin'});
- if(endpoint==='/api/categories'&&method==='GET')return json(200,db.prepare('SELECT c.id,c.name,(SELECT COUNT(*) FROM products p WHERE p.type=c.name) AS productCount FROM categories c ORDER BY name').all());
- if(endpoint==='/api/products'&&method==='GET')return json(200,db.prepare('SELECT * FROM products ORDER BY rowid').all().map(inventory.read).map(photos.read));
+ if(endpoint==='/api/categories'&&method==='GET')return json(200,db.prepare('SELECT c.id,c.name,(SELECT COUNT(*) FROM products p WHERE p.type=c.name AND p.id NOT IN (SELECT product_id FROM archived_products)) AS productCount FROM categories c ORDER BY name').all());
+ if(endpoint==='/api/products'&&method==='GET')return json(200,db.prepare('SELECT * FROM products WHERE id NOT IN (SELECT product_id FROM archived_products) ORDER BY rowid').all().map(inventory.read).map(photos.read));
  if(endpoint==='/api/home'&&method==='GET')return json(200,readHome());
  if(['/api/login','/api/register','/api/setup','/api/admin/login'].includes(endpoint)&&method==='POST'){
   const key=req.socket.remoteAddress;let rate=attempts.get(key);if(!rate||rate.until<Date.now())rate={n:0,until:Date.now()+60000};attempts.set(key,rate);if(++rate.n>20)fail(429,'Muitas tentativas. Aguarde um minuto.');
@@ -68,6 +69,7 @@ module.exports=async function api(req,res){
   }
   if(endpoint.startsWith('/api/admin/products/')&&endpoint.endsWith('/photos'))return json(200,await photos.mutate(endpoint.split('/')[4],method,b));
   if(endpoint==='/api/admin/categories'&&method==='POST'){const name=clean(b.name,2,60).replace(/\s+/g,' ');if(name.toLowerCase()==='todos')fail(400,'Escolha outro nome para a categoria.');if(db.prepare('SELECT id FROM categories WHERE name=? COLLATE NOCASE').get(name))fail(409,'Essa categoria já está cadastrada.');const id=crypto.randomUUID();db.prepare('INSERT INTO categories VALUES(?,?)').run(id,name);return json(201,{id,name,productCount:0});}
+  if(/^\/api\/admin\/products\/[^/]+$/.test(endpoint)&&method==='DELETE'){const id=endpoint.split('/')[4];if(!db.prepare('SELECT id FROM products WHERE id=?').get(id))fail(404,'Produto não encontrado.');db.prepare('INSERT OR IGNORE INTO archived_products VALUES(?)').run(id);return json(200,{ok:true});}
   if(endpoint==='/api/admin/products'&&method==='POST'){const name=clean(b.name,2,100),wash=clean(b.wash,2,80),description=clean(b.description,10,1500);if(!db.prepare('SELECT id FROM categories WHERE name=?').get(typeof b.type==='string'?b.type:''))fail(400,'Categoria inválida.');const id=crypto.randomUUID();inventory.transaction(()=>{db.prepare('INSERT INTO products VALUES(?,?,?,?,?,?)').run(id,name,b.type,wash,'placeholder.svg',description);inventory.replace(id,b.variants||[],0);});return json(201,photos.read(inventory.read(db.prepare('SELECT * FROM products WHERE id=?').get(id))));}
   if(endpoint==='/api/admin/overview'&&method==='GET')return json(200,{orders:db.prepare('SELECT o.*,u.name,u.email FROM orders o JOIN users u ON u.id=o.user_id ORDER BY o.created DESC').all().map(o=>({...o,items:JSON.parse(o.items)})),customers:db.prepare("SELECT id,name,email,created FROM users WHERE role='customer' ORDER BY created DESC").all()});
   if(endpoint.startsWith('/api/admin/orders/')&&method==='PATCH'){if(!['Salvo','Em análise','Concluído','Cancelado'].includes(b.status))fail(400,'Situação inválida.');inventory.status(endpoint.split('/').pop(),b.status);return json(200,{ok:true});}

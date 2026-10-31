@@ -57,6 +57,7 @@ module.exports=async(req,res)=>{
    try{return json(200,await rpc('home_photo',{image:'/api/images/'+file},sessionToken));}catch(e){await remote('/storage/v1/object/ms-product-photos',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({prefixes:[file]})});throw e;}
   }
   if(endpoint==='/api/admin/categories'&&method==='POST')return json(201,await rpc('create',{name:clean(body.name,2,60)},sessionToken,'ms_categories'));
+  if(/^\/api\/admin\/products\/[^/]+$/.test(endpoint)&&method==='DELETE')return json(200,await rpc('delete',{id:endpoint.split('/')[4]},sessionToken,'ms_delete_product'));
   if(endpoint==='/api/admin/products'&&method==='POST'){body.type=clean(body.type,2,60);return json(201,await rpc('product_create',{...body,name:clean(body.name,2,100),wash:clean(body.wash,2,80),description:clean(body.description,10,1500)},sessionToken));}
   if(endpoint==='/api/admin/overview'&&method==='GET')return json(200,await rpc('overview',{},sessionToken));
   if(/^\/api\/admin\/orders\/[^/]+$/.test(endpoint)&&method==='PATCH')return json(200,await rpc('order_status',{id:endpoint.split('/')[4],status:body.status},sessionToken));
