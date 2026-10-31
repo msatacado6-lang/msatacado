@@ -44,6 +44,7 @@ module.exports=async(req,res)=>{
  if(endpoint==='/api/orders'&&method==='POST')return json(201,await rpc('order_create',{items:body.items},sessionToken));
  if(endpoint.startsWith('/api/admin/')){
   const {user,adminAuthenticated}=await rpc('session',{},sessionToken);if(!user)fail(401,'Entre na sua conta para continuar.');if(user.role!=='admin'||!adminAuthenticated)fail(403,'Acesso exclusivo da administração.');
+  if(endpoint==='/api/admin/products'&&method==='POST'){if(!['Calças','Shorts'].includes(body.type))fail(400,'Categoria inválida.');return json(201,await rpc('product_create',{...body,name:clean(body.name,2,100),wash:clean(body.wash,2,80),description:clean(body.description,10,1500)},sessionToken));}
   if(endpoint==='/api/admin/overview'&&method==='GET')return json(200,await rpc('overview',{},sessionToken));
   if(/^\/api\/admin\/orders\/[^/]+$/.test(endpoint)&&method==='PATCH')return json(200,await rpc('order_status',{id:endpoint.split('/')[4],status:body.status},sessionToken));
   if(/^\/api\/admin\/products\/[^/]+$/.test(endpoint)&&method==='PATCH'){if(!['Calças','Shorts'].includes(body.type))fail(400,'Categoria inválida.');return json(200,await rpc('product_update',{...body,id:endpoint.split('/')[4],name:clean(body.name,2,100),wash:clean(body.wash,2,80),description:clean(body.description,10,1500)},sessionToken));}

@@ -17,7 +17,7 @@ module.exports=(db,data,fail)=>{
   }else{
    const photo=list(productId).find(p=>p.id===body.id);if(!photo)fail(404,'Foto não encontrada nesta peça.');
    if(method==='PATCH')db.prepare('UPDATE products SET image=? WHERE id=?').run(photo.url,productId);
-   else if(method==='DELETE'){db.prepare('DELETE FROM photos WHERE id=?').run(photo.id);if(product.image===photo.url){const next=list(productId)[0]?.url||({wide:'wide.webp',reta:'reta.webp',short:'short.webp'})[productId];db.prepare('UPDATE products SET image=? WHERE id=?').run(next,productId);}
+   else if(method==='DELETE'){db.prepare('DELETE FROM photos WHERE id=?').run(photo.id);if(product.image===photo.url){const next=list(productId)[0]?.url||({wide:'wide.webp',reta:'reta.webp',short:'short.webp'})[productId]||'placeholder.svg';db.prepare('UPDATE products SET image=? WHERE id=?').run(next,productId);}
     // Keep the file for historical order snapshots that already reference it.
    }else fail(405,'Método não permitido.');
   }
