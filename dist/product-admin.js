@@ -18,4 +18,24 @@ document.addEventListener('submit',async e=>{const form=e.target;if(!form.matche
 
 window.addEventListener('hashchange',()=>{const modal=document.querySelector('#product-dialog');if(modal?.open)modal.close();});
 
-document.addEventListener('click',async e=>{const button=e.target.closest('[data-delete-product]');if(!button||button.disabled)return;const p=products.find(p=>p.id===button.dataset.deleteProduct);if(!p||!confirm('Excluir a peça "'+p.name+'" do catálogo? Ela não poderá receber novas compras. Os pedidos anteriores serão mantidos.'))return;button.disabled=true;try{await api('admin/products/'+p.id,'DELETE',{});await loadProducts();renderAdminList();toast('Peça excluída do catálogo.');}catch(err){toast(err.message);}finally{button.disabled=false;}});
+
+function openDeleteProduct(id){
+ const p=products.find(p=>p.id===id);if(!p)return;
+ let modal=document.querySelector('#delete-product-dialog');
+ if(!modal){modal=document.createElement('dialog');modal.id='delete-product-dialog';modal.className='delete-product-modal';modal.setAttribute('aria-labelledby','delete-product-title');modal.setAttribute('aria-describedby','delete-product-description');document.body.append(modal);modal.addEventListener('cancel',e=>{if(modal.dataset.busy)e.preventDefault();});}
+ modal.dataset.product=id;
+ modal.innerHTML='<h2 id="delete-product-title">Excluir peça?</h2><p id="delete-product-description">Você vai excluir <strong>'+esc(p.name)+'</strong> do catálogo. Os pedidos anteriores serão mantidos.</p><p class="form-error" role="alert"></p><div class="product-form-actions"><button type="button" class="btn outline" data-cancel-delete autofocus>Cancelar</button><button type="button" class="btn confirm-delete" data-confirm-delete>Excluir peça</button></div>';
+ modal.showModal();modal.querySelector('[data-cancel-delete]').focus();
+}
+document.addEventListener('click',async e=>{
+ const button=e.target.closest('button');if(!button)return;
+ if(button.dataset.deleteProduct){openDeleteProduct(button.dataset.deleteProduct);return;}
+ const modal=button.closest('#delete-product-dialog');if(!modal||modal.dataset.busy)return;
+ if(button.hasAttribute('data-cancel-delete')){modal.close();return;}
+ if(!button.hasAttribute('data-confirm-delete'))return;
+ modal.dataset.busy='true';modal.querySelectorAll('button').forEach(b=>b.disabled=true);button.textContent='Excluindo…';
+ try{await api('admin/products/'+modal.dataset.product,'DELETE',{});await loadProducts();renderAdminList();modal.close();toast('Peça excluída do catálogo.');}
+ catch(err){modal.querySelector('.form-error').textContent=err.message;}
+ finally{delete modal.dataset.busy;modal.querySelectorAll('button').forEach(b=>b.disabled=false);button.textContent='Excluir peça';}
+});
+window.addEventListener('hashchange',()=>{const modal=document.querySelector('#delete-product-dialog');if(modal?.open&&!modal.dataset.busy)modal.close();});
