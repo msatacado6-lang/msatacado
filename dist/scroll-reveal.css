@@ -1,0 +1,4 @@
+.scroll-reveal{transition:opacity .55s ease,transform .55s cubic-bezier(.2,.65,.3,1)}
+.scroll-pending{opacity:0;transform:translateY(22px)}
+@media(prefers-reduced-motion:reduce){.scroll-reveal,.scroll-pending{opacity:1;transform:none;transition:none}}
+@media print{.scroll-reveal,.scroll-pending{opacity:1;transform:none;transition:none}}
