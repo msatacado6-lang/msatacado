@@ -2,3 +2,5 @@
 .scroll-pending{opacity:0;transform:translateY(22px)}
 @media(prefers-reduced-motion:reduce){.scroll-reveal,.scroll-pending{opacity:1;transform:none;transition:none}}
 @media print{.scroll-reveal,.scroll-pending{opacity:1;transform:none;transition:none}}
+
+.store-loading{min-height:70vh;padding-top:70px;padding-bottom:70px}.loading-placeholder{height:220px;background:#f0ece5;border-radius:3px;margin:24px 0}.loading-placeholder.short{height:24px;width:55%;max-width:440px}
