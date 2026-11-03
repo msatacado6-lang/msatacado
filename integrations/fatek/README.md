@@ -110,3 +110,51 @@ pedidos, IDs e intentos existentes. Voltar a `LEGACY` é mudança de fonte de da
 e exige reconciliação/autorização, não é um mecanismo automático de recuperação.
 
 Fotos enviadas antes de salvar o produto podem ficar sem referência se o cadastro for abandonado. Não apagar esses objetos automaticamente durante resultado incerto; definir limpeza com conferência de referências na operação de mídia. A migração desse upload para R2 preserva o contrato de URL e é separada.
+
+## Recuperação do site publicado — 03/11
+
+Origem confirmada: `https://msatacado-rs.com.br`; projeto público:
+`https://qdjjcewniayemmsiinec.supabase.co`. Isso identifica os destinos, sem
+credenciais, alteração do Auth ou ativação. O manifesto `site-recovery-20261103.json`
+guarda hashes dos assets públicos comparados com o main do repositório.
+
+Foram conciliados os ajustes de layout, telefone, fotos/estoque e as telas de
+frete com o formulário canônico da PR. O acesso integrado mantém e-mail/senha no
+Supabase; informar um e-mail sozinho não cria sessão nem concede acesso ao histórico.
+O WhatsApp é dado de contato: edição no CRM exige o perfil próprio e a revisão
+exibida; metadata do Auth não sobrescreve automaticamente uma ficha existente.
+Na versão SQLite de desenvolvimento, contatos ficam em tabela aditiva separada,
+compatível com o formato anterior de `users`; rollback preserva essa tabela.
+
+A calculadora do produto preserva a interface recuperada. No modo FATEK exige
+sessão, combinação selecionada e cotação canônica com o mínimo atual. Ela não
+cota contra o saldo antigo. O carrinho continua usando a revisão/recibo ERP;
+o painel de frete aponta para as configurações autorizadas do ERP. A interface
+legada recuperada de frete ainda depende de conciliar o backend original.
+
+`security-headers.cjs` é a fonte da política servida localmente e registrada em
+`vercel.json`. Permite conexões somente à própria origem e ao projeto Supabase
+acima, imagens da própria origem/projeto/CRM e o hash exato do bootstrap inline.
+Não libera wildcard, scripts inline genéricos ou unsafe-eval. Uma mudança de
+projeto ou outro provedor de imagens exige revisar a lista de destinos e os
+testes. O teste de navegador confere o SDK real com CSP efetiva e transporte
+sintético, inclusive bloqueio de destino não aprovado.
+
+Configuração prevista do Auth, **não aplicada**: Site URL
+`https://msatacado-rs.com.br/`, redirects exatos
+`https://msatacado-rs.com.br/#conta` e
+`https://msatacado-rs.com.br/#conta/nova-senha`. Conferir SMTP, confirmação,
+recuperação e refresh no projeto real antes de considerar isso homologado.
+A prova TXT do domínio e as credenciais restritas permanecem pendentes.
+
+**Dependência externa antes de rollout:** recuperar o fonte do backend que gerou
+a versão publicada e das migrations `20261031115850_shipping_melhor_envio` e
+`20261102224102_passwordless_customers_phone`. Elas foram vistas no banco real,
+mas não estão no main consultado. Não inventar seu conteúdo, reaplicá-las ou
+sobrescrever o backend publicado usando apenas esta recuperação de frontend.
+Gabriel pode fornecer o fonte por arquivo ou repositório, sem novo deploy.
+`recover-live-migrations.sql` é uma consulta somente leitura das duas versões
+para recuperar seu SQL no projeto dedicado. Guardar a saída em privado e revisar
+possíveis segredos antes de versioná-la; a consulta não executa as migrations.
+Acesso à Vercel ajuda a inspecionar configuração, mas não garante o fonte completo.
+O gate de deploy da branch de revisão continua desligado; CI remota segue pendente.

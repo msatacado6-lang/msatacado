@@ -1,6 +1,7 @@
 const crypto=require('node:crypto'),sharp=require('sharp');
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const clean=(v,min,max)=>typeof v==='string'&&v.trim().length>=min&&v.trim().length<=max?v.trim():fail(400,'Confira os campos informados.');
+const cleanPhone=v=>{if(v==null||v==='')return null;const digits=String(v).replace(/\D/g,'');if(!/^\d{10,11}$/.test(digits))fail(400,'Informe um WhatsApp com DDD válido.');return digits;};
 const validHrefs=['#catalogo','#catalogo?tipo=Calças','#catalogo?tipo=Shorts','#como-comprar','#atendimento','#loja'];
 const digest=t=>crypto.createHash('sha256').update(t).digest('hex');
 const hash=(password,salt=crypto.randomBytes(16).toString('hex'))=>salt+':'+crypto.scryptSync(password,salt,64).toString('hex');
@@ -39,12 +40,12 @@ module.exports=async(req,res)=>{
   if(typeof body.password!=='string'||body.password.length<10||body.password.length>128)fail(400,'Use uma senha entre 10 e 128 caracteres.');
   let user;
   if(endpoint==='/api/login'||endpoint==='/api/admin/login'){user=await rpc('login_lookup',{email});const stored=user?.password||hash('invalid-password');if(!crypto.timingSafeEqual(Buffer.from(hash(body.password,stored.split(':')[0])),Buffer.from(stored))||!user)fail(401,'E-mail ou senha incorretos.');}
-  else user=await rpc('register',{id:crypto.randomUUID(),name:clean(body.name,2,100),email,password:hash(body.password)});
+  else user=await rpc('register',{id:crypto.randomUUID(),name:clean(body.name,2,100),email,password:hash(body.password),phone:cleanPhone(body.phone)});
   if(endpoint==='/api/admin/login'&&user.role!=='admin')fail(403,'Acesso exclusivo da administração.');
-  const t=crypto.randomBytes(32).toString('hex');await rpc('create_session',{token:digest(t),user_id:user.id,scope:endpoint==='/api/admin/login'?'admin':'customer',expires:Date.now()+86400000},sessionToken);res.setHeader('Set-Cookie',cookie(t,86400));return json(200,{user:{id:user.id,name:user.name,email:user.email,role:user.role}});
+  const t=crypto.randomBytes(32).toString('hex');await rpc('create_session',{token:digest(t),user_id:user.id,scope:endpoint==='/api/admin/login'?'admin':'customer',expires:Date.now()+86400000},sessionToken);res.setHeader('Set-Cookie',cookie(t,86400));return json(200,{user:{id:user.id,name:user.name,email:user.email,phone:user.phone,role:user.role}});
  }
  if(endpoint==='/api/logout'&&method==='POST'){await rpc('logout',{},sessionToken);res.setHeader('Set-Cookie',cookie('',0));return json(200,{ok:true});}
- if(endpoint==='/api/profile'&&method==='PATCH')return json(200,await rpc('profile',{name:clean(body.name,2,100)},sessionToken));
+ if(endpoint==='/api/profile'&&method==='PATCH')return json(200,await rpc('profile',{name:clean(body.name,2,100),...(body.phone!==undefined?{phone:cleanPhone(body.phone)}:{})},sessionToken));
  if(endpoint==='/api/orders'&&method==='GET')return json(200,await rpc('orders',{},sessionToken));
  if(endpoint==='/api/orders'&&method==='POST')return json(201,await rpc('order_create',{items:body.items},sessionToken));
  if(endpoint.startsWith('/api/admin/')){

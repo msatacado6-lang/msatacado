@@ -116,3 +116,8 @@ test('proxy distinguishes a rejected grade from uncertain writes and revision co
   const timeout=await productRequest('POST',null,{},env,async()=>{throw Error('Timeout');});
   assert.equal(timeout.status,503);assert.equal(timeout.body.code,'PRODUCT_OUTCOME_UNKNOWN');
 });
+test('recovered phone field updates only the own revised CRM profile and cannot forward grants or identity',async()=>{
+ let captured;const f=fixture({updateProfile:async body=>{captured=body;return {profile:{name:'Cliente',phone:body.phone}};}});
+ await f.adapter.request('profile','PATCH',{revision:'displayed',name:'Cliente',phone:'(51) 99999-1234',tenantId:'other',role:'admin',email:'other@example.test'},()=>{});
+ assert.deepEqual(captured,{revision:'displayed',name:'Cliente',phone:'51999991234'});
+});

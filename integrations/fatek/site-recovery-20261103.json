@@ -1,0 +1,63 @@
+{
+  "source": "https://msatacado-rs.com.br/",
+  "capturedAt": "2026-11-03T22:26:37.847181+00:00",
+  "comparedWithMain": "41bf591bbbfb96a9f870dce0f3ed268a762daf7f",
+  "method": "public HTTPS asset reads only; no deployed code/configuration/data changed",
+  "assets": {
+    "/account.css": {
+      "sha256": "1d600f56c2155da440633c9f54d8acd2700cf14a36098907c2184073f78bb1bd",
+      "bytes": 8251,
+      "presentInPR": true,
+      "matchesPR": false
+    },
+    "/account.js": {
+      "sha256": "5acdf6e588940f73a204f5dd19bca199b16f56ea077d86e444e340262c206fb0",
+      "bytes": 18579,
+      "presentInPR": true,
+      "matchesPR": false
+    },
+    "/app.js": {
+      "sha256": "f498e7d6cf975e738172eddddd9cc9c851a03cdf0cca6ffd449577c9b10d28a2",
+      "bytes": 14100,
+      "presentInPR": true,
+      "matchesPR": false
+    },
+    "/inventory.js": {
+      "sha256": "247920e59ef25052457563a6a86ad8d1dc8c6a23f5a92c0c86b3510438018b56",
+      "bytes": 3845,
+      "presentInPR": true,
+      "matchesPR": false
+    },
+    "/photos.js": {
+      "sha256": "28929257d4b3a7fdf72f17fd43325a920e92c969f4a10eb0c502da951d33cc1e",
+      "bytes": 4295,
+      "presentInPR": true,
+      "matchesPR": false
+    },
+    "/shipping.css": {
+      "sha256": "5034f98ba5e2c8b0847c872f7760b0b2345f3220b9c0dabebc76f05bc5d35610",
+      "bytes": 2414,
+      "presentInPR": false,
+      "matchesPR": false
+    },
+    "/shipping.js": {
+      "sha256": "b72d049c3f8cd788e46b18f6b4124c751843c6b5dc759b8962bed56dbe9b7ada",
+      "bytes": 12415,
+      "presentInPR": false,
+      "matchesPR": false
+    },
+    "/style.css": {
+      "sha256": "53f3a5fdde30e22ab17dd46ec7de6b36f64aad45f8567b4a0b9891e829e76d64",
+      "bytes": 15232,
+      "presentInPR": true,
+      "matchesPR": false
+    }
+  },
+  "mergeDecisions": [
+    "Preserve recovered layout/CSS, phone fields, shipping display and product calculator.",
+    "Connected mode keeps official Supabase password authentication and live ERP authorization; email alone is not proof of identity.",
+    "Connected product shipping uses selected canonical variant IDs, current minimum and the authenticated ERP quote API.",
+    "Legacy shipping UI is recovered, but its private backend and applied migrations are not recoverable from public assets; source reconciliation remains required before rollout.",
+    "No existing migration was recreated or edited; the live-only shipping/passwordless migrations remain pending source recovery."
+  ]
+}

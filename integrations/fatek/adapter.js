@@ -90,9 +90,10 @@ export function createAdapter(config, dependencies = {}) {
     }
   }
   async function session() {
-    if (!await identity()) { buyer = null; profile = null; return { user: null, adminAuthenticated: false, setupNeeded: false }; }
+    const user=await identity();
+    if (!user) { buyer = null; profile = null; return { user: null, adminAuthenticated: false, setupNeeded: false }; }
     const result = await api.me(); buyer = result.buyer;
-    return { user: { id: buyer.id, name: buyer.name, email: buyer.email, role: 'customer' }, adminAuthenticated: false, setupNeeded: false };
+    return { user: { id: buyer.id, name: buyer.name, email: buyer.email, ...(typeof user.user_metadata?.phone==='string'?{phone:user.user_metadata.phone.replace(/\D/g,'').slice(0,11)}:{}), role: 'customer' }, adminAuthenticated: false, setupNeeded: false };
   }
   return {
     api, auth, friendly, pending, canEditProducts: config.capabilities.productWrites,
@@ -134,15 +135,15 @@ export function createAdapter(config, dependencies = {}) {
         if (path === 'login' || path === 'register') {
           const credentials = { email: body.email, password: body.password };
           const result = path === 'login' ? await auth.signInWithPassword(credentials) : await auth.signUp({ ...credentials,
-            options: { data: { name: body.name }, emailRedirectTo: window.location.origin + '/#conta' } });
+            options: { data: { name: body.name, ...(typeof body.phone==='string'?{phone:body.phone.replace(/\D/g,'').slice(0,11)}:{}) }, emailRedirectTo: window.location.origin + '/#conta' } });
           if (result.error) throw failure('AUTH_FAILED');
           if (!result.data.session) return { confirmationRequired: true };
           await api.syncCustomer(); return session();
         }
         if (path === 'logout') { const { error } = await auth.signOut(); if (error) throw failure('AUTH_FAILED'); buyer = null; profile = null; return { ok: true }; }
         if (path === 'profile' && method === 'PATCH') {
-          const result = await api.updateProfile({ revision: body.revision, name: body.name }); profile = result.profile;
-          return { user: { id: buyer?.id, name: profile?.name, email: buyer?.email, role: 'customer' } };
+          const result = await api.updateProfile({ revision: body.revision, name: body.name, ...(body.phone !== undefined ? {phone:body.phone.replace(/\D/g,'')} : {}) }); profile = result.profile;
+          return { user: { id: buyer?.id, name: profile?.name, email: buyer?.email, phone:profile?.phone, role: 'customer' } };
         }
         if (path === 'recover') {
           const { error } = await auth.resetPasswordForEmail(body.email, { redirectTo: window.location.origin + '/#conta/nova-senha' });

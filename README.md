@@ -1,6 +1,8 @@
 # MS Atacado — e-commerce
 
-Loja: https://msatacado-loja.vercel.app
+Domínio informado da loja: https://msatacado-rs.com.br
+
+Esta PR prepara a próxima versão; a recuperação do frontend e as dependências do backend estão descritas em [integração Fatek](integrations/fatek/README.md).
 
 Frontend HTML/CSS/JavaScript, API Node na Vercel, banco Postgres e fotos no Supabase. A identidade visual usa os arquivos oficiais da MS, Saira/Barlow e as cores da marca.
 
