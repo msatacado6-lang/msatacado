@@ -20,7 +20,7 @@ module.exports=async(req,res)=>{
  let body={};if(!['GET','HEAD'].includes(method)){
   if(!req.headers['content-type']?.startsWith('application/json'))fail(415,'Envie JSON.');
   // Vercel has a 4.5 MB request limit; browser uploads are resized before sending.
-  const isPhoto=endpoint.endsWith('/photos')||endpoint==='/api/admin/home/photo';
+  const isPhoto=endpoint.endsWith('/photos')||endpoint==='/api/admin/home/photo'||endpoint==='/api/admin/product-media';
   if(req.body!==undefined){body=typeof req.body==='string'?JSON.parse(req.body):req.body;}else{let raw='';for await(const c of req){raw+=c;if(Buffer.byteLength(raw)>(isPhoto?4000000:32768))fail(413,'Dados muito grandes.');}body=JSON.parse(raw||'{}');}
   if(!body||typeof body!=='object'||Array.isArray(body))fail(400,'Dados inválidos.');
   if(Buffer.byteLength(JSON.stringify(body))>(isPhoto?4000000:32768))fail(413,'Dados muito grandes.');
@@ -48,6 +48,7 @@ module.exports=async(req,res)=>{
  if(endpoint==='/api/orders'&&method==='POST')return json(201,await rpc('order_create',{items:body.items},sessionToken));
  if(endpoint.startsWith('/api/admin/')){
   const {user,adminAuthenticated}=await rpc('session',{},sessionToken);if(!user)fail(401,'Entre na sua conta para continuar.');if(user.role!=='admin'||!adminAuthenticated)fail(403,'Acesso exclusivo da administração.');
+  if(process.env.MS_COMMERCE_MODE==='FATEK'&&endpoint==='/api/admin/product-media'&&method==='POST'){const result=await require('./fatek-product-media.cjs').uploadProductMedia(body);return json(result.status,result.body);}
   if(process.env.MS_COMMERCE_MODE==='FATEK'&&/^\/api\/admin\/products(?:\/[0-9a-f-]{36})?$/.test(endpoint)){const result=await require('./fatek-product-admin.cjs').productRequest(method,endpoint.split('/')[4],body);return json(result.status,result.body);}
   if(endpoint==='/api/admin/home'&&method==='PATCH')return json(200,await rpc('home_update',{eyebrow:clean(body.eyebrow,2,60),headline:clean(body.headline,2,80),highlight:clean(body.highlight,2,60),subtitle:clean(body.subtitle,5,220),ctaText:clean(body.ctaText,2,36),ctaHref:validHrefs.includes(body.ctaHref)?body.ctaHref:fail(400,'Destino inválido.')},sessionToken));
   if(endpoint==='/api/admin/home'&&method==='DELETE')return json(200,await rpc('home_reset',{},sessionToken));

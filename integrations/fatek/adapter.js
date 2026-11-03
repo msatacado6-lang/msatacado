@@ -123,6 +123,7 @@ export function createAdapter(config, dependencies = {}) {
         if (path === 'categories' && method === 'GET') return (await api.categories()).categories.map(name => ({ name }));
         // Existing administrator is deliberately separate from a buyer's Auth session.
         if (admin && (path === 'session' || path === 'logout' || path.startsWith('admin/'))) {
+          if (path === 'admin/product-media' && method === 'POST' && config.capabilities.productWrites) return legacy(path, method, body);
           if (/^admin\/products(?:\/[a-f0-9-]{36})?$/.test(path) && ['GET','POST','PATCH'].includes(method) && config.capabilities.productWrites) return legacy(path, method, body);
           if (/^admin\/(?:products|categories|orders)(\/|$)/.test(path)) throw failure('ERP_OPERATION_REQUIRED');
           return legacy(path, method, body);

@@ -1,6 +1,7 @@
 const test = require('node:test'), assert = require('node:assert/strict'), esbuild = require('esbuild');
 const { publicConfig, withIntegration } = require('../integration-mode.cjs');
 const { productRequest } = require('../fatek-product-admin.cjs');
+const { uploadProductMedia } = require('../fatek-product-media.cjs');
 const code = esbuild.buildSync({ entryPoints:['integrations/fatek/adapter.js'],bundle:true,format:'cjs',platform:'node',write:false }).outputFiles[0].text;
 const module_ = { exports:{} }; new Function('module','exports','require',code)(module_,module_.exports,require);
 const {createAdapter,mapProduct,mapOrder} = module_.exports;
@@ -60,4 +61,31 @@ test('product credential stays server-only and cannot select arbitrary upstreams
   assert.equal((await productRequest('PATCH','../customers',{},env,transport)).status,400);
   assert.equal((await productRequest('DELETE',id,{},env,transport)).status,400);
   assert.equal((await productRequest('POST',null,{}, {},transport)).status,503);
+});
+test('product media validates actual image bytes and stores only a generated WebP path',async()=>{
+  const env={MS_FATEK_PRODUCT_WRITES:'1',SUPABASE_URL:project,SUPABASE_SERVICE_ROLE_KEY:'synthetic-server-only',FATEK_STORE_ORIGIN:'https://store.example'};
+  let calls=0,observed;
+  const transport=async(url,options)=>{calls++;observed={url,options};return new Response('{}',{status:200});};
+  assert.equal((await uploadProductMedia({base64:Buffer.from('not an image').toString('base64')},env,transport)).status,400);assert.equal(calls,0);
+  const bytes=require('node:fs').readFileSync('dist/assets/wide.webp');
+  const result=await uploadProductMedia({base64:bytes.toString('base64')},env,transport);
+  assert.equal(result.status,201);assert.equal(calls,1);assert.match(result.body.imageUrl,/^https:\/\/store\.example\/api\/images\/[0-9a-f-]{36}\.webp$/);
+  assert(observed.url.startsWith(project+'/storage/v1/object/ms-product-photos/'));assert.equal(observed.options.headers.Authorization,'Bearer synthetic-server-only');
+  assert.equal(JSON.stringify(result).includes('synthetic-server-only'),false);
+});
+test('the real legacy admin guard denies product media to visitors and buyers in connected mode',async()=>{
+  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http');
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'ms-fatek-media-guard-'));
+  const names=['PORT','MS_DATA_DIR','MS_COMMERCE_MODE','MS_FATEK_PRODUCT_WRITES','SUPABASE_URL','SUPABASE_PUBLISHABLE_KEY'];
+  const saved=Object.fromEntries(names.map(k=>[k,process.env[k]]));
+  Object.assign(process.env,{MS_DATA_DIR:folder,MS_COMMERCE_MODE:'LEGACY'});
+  const legacy=require('../api.cjs'),handler=withIntegration(legacy),server=http.createServer(handler);
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;process.env.PORT=String(server.address().port);
+  const call=async(route,body,cookie)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json',...(cookie?{cookie}:{})},body:JSON.stringify(body)});return {status:r.status,cookie:r.headers.get('set-cookie')?.split(';')[0]};};
+  try{
+    const buyer=await call('register',{name:'Buyer fixture',email:'fixture@example.test',password:'SyntheticPassword123!'});assert.equal(buyer.status,200);
+    Object.assign(process.env,{MS_COMMERCE_MODE:'FATEK',MS_FATEK_PRODUCT_WRITES:'1',SUPABASE_URL:project,SUPABASE_PUBLISHABLE_KEY:config.publishableKey});
+    assert.equal((await call('admin/product-media',{base64:'aGVsbG8='})).status,401);
+    assert.equal((await call('admin/product-media',{base64:'aGVsbG8='},buyer.cookie)).status,403);
+  }finally{await new Promise(r=>server.close(r));for(const key of names){if(saved[key]===undefined)delete process.env[key];else process.env[key]=saved[key];}fs.rmSync(folder,{recursive:true,force:true});}
 });

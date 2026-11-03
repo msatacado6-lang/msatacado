@@ -37,10 +37,10 @@ origem, flag e plano; pode revogar a delegação sem mudar outros acessos.
 O formulário conectado cria/edita nome, categoria, descrição, preço/custo e
 grade com os IDs/revisão canônicos. Cadastros novos têm uma intenção persistida
 antes do envio: repetir o mesmo cadastro confirma o resultado sem duplicar.
-Uma edição antiga não sobrescreve uma mudança feita no ERP. Fotos, parâmetros
+Uma edição antiga não sobrescreve uma mudança feita no ERP. Fotos básicas podem ser enviadas pelo painel e suas URLs são gravadas no ERP. O backend valida o arquivo, normaliza para WebP e usa o storage atual da loja, com chave somente no servidor. Parâmetros
 fiscais e demais campos avançados já existentes são preservados.
 
-Saldo é somente leitura no formulário conectado. Entradas, ajustes e fotos
+Saldo é somente leitura no formulário conectado. Entradas e ajustes
 continuam no ERP nesta primeira etapa; não existe sincronização de dois saldos.
 Excluir produto ou alterar status de pedido pelo backend anterior é bloqueado
 no modo conectado. A API administrativa lista até 1.000 produtos; acima disso
@@ -85,3 +85,5 @@ Em rollback, pausar a conexão e a delegação de escrita no ERP antes do códig
 Não voltar ao banco antigo como fallback para falha de API. Preservar produtos,
 pedidos, IDs e intentos existentes. Voltar a `LEGACY` é mudança de fonte de dados
 e exige reconciliação/autorização, não é um mecanismo automático de recuperação.
+
+Fotos enviadas antes de salvar o produto podem ficar sem referência se o cadastro for abandonado. Não apagar esses objetos automaticamente durante resultado incerto; definir limpeza com conferência de referências na operação de mídia. A migração desse upload para R2 preserva o contrato de URL e é separada.

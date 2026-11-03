@@ -25,7 +25,7 @@ module.exports=async function api(req,res){
  const port=process.env.PORT||4173,hosts=['127.0.0.1:'+port,'localhost:'+port];
  if(!hosts.includes(req.headers.host)||req.headers.origin&&!hosts.map(h=>'http://'+h).includes(req.headers.origin))fail(403,'Origem inválida.');
  if(req.url.startsWith('/api/images/')&&req.method==='GET')return await photos.serve(req.url.split('?')[0],res);
- let b={};if(!['GET','HEAD'].includes(req.method)){if(!req.headers['content-type']?.startsWith('application/json'))fail(415,'Envie JSON.');let raw='';for await(const c of req){raw+=c;if(Buffer.byteLength(raw)>((req.url.startsWith('/api/admin/products/')&&req.url.endsWith('/photos'))||req.url==='/api/admin/home/photo'?11300000:32768))fail(413,'Dados muito grandes.');}try{b=JSON.parse(raw||'{}')}catch{fail(400,'JSON inválido.')}if(!b||typeof b!=='object'||Array.isArray(b))fail(400,'Dados inválidos.');}
+ let b={};if(!['GET','HEAD'].includes(req.method)){if(!req.headers['content-type']?.startsWith('application/json'))fail(415,'Envie JSON.');let raw='';for await(const c of req){raw+=c;if(Buffer.byteLength(raw)>((req.url.startsWith('/api/admin/products/')&&req.url.endsWith('/photos'))||req.url==='/api/admin/home/photo'||req.url==='/api/admin/product-media'?11300000:32768))fail(413,'Dados muito grandes.');}try{b=JSON.parse(raw||'{}')}catch{fail(400,'JSON inválido.')}if(!b||typeof b!=='object'||Array.isArray(b))fail(400,'Dados inválidos.');}
  const endpoint=req.url.split('?')[0],method=req.method;
  const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('ms_session='))?.slice(11);
  const user=token?db.prepare('SELECT u.*,s.access_scope FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>?').get(digest(token),Date.now()):null;
@@ -56,6 +56,7 @@ module.exports=async function api(req,res){
  if(endpoint==='/api/orders'&&method==='GET'){auth();return json(200,db.prepare('SELECT * FROM orders WHERE user_id=? ORDER BY created DESC').all(user.id).map(o=>({...o,items:JSON.parse(o.items)})));}
  if(endpoint.startsWith('/api/admin/')){
   auth();if(user.role!=='admin'||user.access_scope!=='admin')fail(403,'Acesso exclusivo da administração.');
+  if(process.env.MS_COMMERCE_MODE==='FATEK'&&endpoint==='/api/admin/product-media'&&method==='POST'){const result=await require('./fatek-product-media.cjs').uploadProductMedia(b);return json(result.status,result.body);}
   if(process.env.MS_COMMERCE_MODE==='FATEK'&&/^\/api\/admin\/products(?:\/[0-9a-f-]{36})?$/.test(endpoint)){const result=await require('./fatek-product-admin.cjs').productRequest(method,endpoint.split('/')[4],b);return json(result.status,result.body);}
   if(endpoint==='/api/admin/home'&&method==='PATCH'){
    const next={...readHome(),eyebrow:clean(b.eyebrow,2,60),headline:clean(b.headline,2,80),highlight:clean(b.highlight,2,60),subtitle:clean(b.subtitle,5,220),ctaText:clean(b.ctaText,2,36),ctaHref:validHrefs.includes(b.ctaHref)?b.ctaHref:fail(400,'Destino inválido.')};

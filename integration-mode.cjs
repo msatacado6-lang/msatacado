@@ -29,7 +29,8 @@ function withIntegration(legacy) {
       // Prevent direct requests from continuing to sell/edit against the old stock.
       // Presentation and existing admin authentication/history remain with the store.
       const productEditor = process.env.MS_FATEK_PRODUCT_WRITES === '1' && /^\/api\/admin\/products(?:\/[0-9a-f-]{36})?$/.test(route) && ['GET','POST','PATCH'].includes(req.method);
-      const allowed = productEditor || (req.method === 'GET' && ['/api/home', '/api/session', '/api/admin/overview'].includes(route)) ||
+      const productMedia = process.env.MS_FATEK_PRODUCT_WRITES === '1' && req.method === 'POST' && route === '/api/admin/product-media';
+      const allowed = productEditor || productMedia || (req.method === 'GET' && ['/api/home', '/api/session', '/api/admin/overview'].includes(route)) ||
         (req.method === 'GET' && /^\/api\/images\/[a-f0-9-]{36}\.webp$/.test(route)) ||
         (req.method === 'POST' && ['/api/admin/login', '/api/logout'].includes(route)) ||
         (['PATCH', 'DELETE'].includes(req.method) && route === '/api/admin/home') ||

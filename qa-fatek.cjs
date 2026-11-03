@@ -14,6 +14,7 @@ const server=http.createServer(async(req,res)=>{
  if(route==='/api/session')return reply(res,200,{user:admin?{id:'staff',name:'Gestão fixture',email:'admin@example.test',role:'admin'}:null,adminAuthenticated:admin,setupNeeded:false});
  if(route==='/api/admin/login'){assert.equal(body.email,'admin@example.test');res.setHeader('Set-Cookie','fixture-admin=1; HttpOnly; SameSite=Strict; Path=/');return reply(res,200,{user:{id:'staff',role:'admin'}});}
  if(route.startsWith('/api/admin/')&&!admin)return reply(res,403,{error:'Acesso restrito.'});
+ if(route==='/api/admin/product-media'){assert.equal(req.method,'POST');return reply(res,201,{imageUrl:'https://store.example/api/images/10000000-0000-4000-8000-000000000099.webp'});}
  if(route==='/api/admin/overview')return reply(res,200,{orders:[],customers:[]});
  if(route==='/api/admin/products'&&req.method==='GET')return reply(res,200,{items:[record,...(createdProduct?[createdProduct]:[])]});
  if(route==='/api/admin/products/'+productId&&req.method==='GET')return reply(res,200,record);
@@ -35,6 +36,7 @@ const server=http.createServer(async(req,res)=>{
  browser=await puppeteer.launch({headless:true});const page=await browser.newPage(),errors=[],popups=[];page.on('pageerror',e=>errors.push(e.message));page.on('popup',p=>popups.push(p));
  await page.setRequestInterception(true);page.on('request',request=>{
   const url=new URL(request.url());if(url.origin===base)return request.continue();
+  if(url.hostname==='store.example'&&url.pathname.startsWith('/api/images/'))return request.respond({status:200,contentType:'image/webp',body:fs.readFileSync('dist/assets/wide.webp')});
   if(url.hostname!=='abcdefghijklmnopqrst.supabase.co')return request.abort();
   const headers={'Access-Control-Allow-Origin':base,'Access-Control-Allow-Headers':'authorization,apikey,content-type,idempotency-key,x-client-info,x-supabase-api-version','Access-Control-Allow-Methods':'GET,POST,OPTIONS'};
   const send=(value,status=200)=>request.respond({status,contentType:'application/json',headers,body:JSON.stringify(value)});
@@ -74,8 +76,8 @@ const server=http.createServer(async(req,res)=>{
  await page.screenshot({path:'qa/fatek-editor-mobile.png'});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.click('[data-close-product]');await page.click('[data-new-product]');await page.waitForSelector('[data-fatek-product="new"]');
  for(const [name,value]of Object.entries({name:'Nova peça do painel',category:'Roupas',costPrice:'20',sellPrice:'80',description:'Peça criada pela integração.'}))await page.type('[data-fatek-product] [name='+name+']',value);
- await page.click('[data-add-editor-row]');await page.type('[data-grade-value="0"]','Preto');await page.type('[data-grade-value="1"]','M');await page.click('[data-fatek-product] [type=submit]');await page.waitForFunction(()=>document.querySelector('#product-dialog .form-error').textContent.length>0);await page.click('[data-fatek-product] [type=submit]');await page.waitForFunction(()=>!document.querySelector('#product-dialog').open);
- assert.equal(creationAttempts,2);assert.deepEqual(productCalls.at(-1),productCalls.at(-2));assert.equal(createdProduct.grade.variants[0].stockQty,0);
+ await page.click('[data-add-editor-row]');await page.type('[data-grade-value="0"]','Preto');await page.type('[data-grade-value="1"]','M');await(await page.$('[data-editor-photos]')).uploadFile(path.resolve('dist/assets/wide.webp'));await page.click('[data-fatek-product] [type=submit]');await page.waitForFunction(()=>document.querySelector('#product-dialog .form-error').textContent.length>0);await page.click('[data-fatek-product] [type=submit]');await page.waitForFunction(()=>!document.querySelector('#product-dialog').open);
+ assert.equal(creationAttempts,2);assert.equal(createdProduct.imageUrl,'https://store.example/api/images/10000000-0000-4000-8000-000000000099.webp');assert.deepEqual(productCalls.at(-1),productCalls.at(-2));assert.equal(createdProduct.grade.variants[0].stockQty,0);
  await page.setViewport({width:1440,height:1000});await page.screenshot({path:'qa/fatek-admin-desktop.png'});assert.deepEqual(errors,[]);
  console.log('PASS: integrated canonical color/size and price; mobile checkout, CEP quote, Auth buyer isolation, uncertain order replay with one key, WhatsApp only after receipt, admin stale edit/stock preservation and create replay, desktop/mobile with no JS errors. Synthetic transport only.');
  }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}
