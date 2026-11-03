@@ -39,5 +39,10 @@
         }
       ]
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "codex/fatek-api-adapter": false
+    }
+  }
 }

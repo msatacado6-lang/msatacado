@@ -1,6 +1,6 @@
 # Loja conectada ao ERP
 
-Preparação local, sem publicação ou ativação. O modo padrão continua `LEGACY`.
+Preparação para revisão em PR, sem publicação da loja ou ativação. O modo padrão continua `LEGACY`.
 O visual e o painel atual são preservados nesse modo. Nenhum banco existente
 é importado, apagado ou migrado por iniciar o código.
 
@@ -68,7 +68,10 @@ retorna erro explícito, sem truncar o catálogo. A vitrine pública é paginada
 6. Só após aceite e autorização, configurar o modo conectado e a delegação de
    produtos. O teste padrão atual da MS não concede o recurso de loja Pro.
 
-Por padrão nenhuma variável ativa a integração. Não há push, CI remota, novo
+Por padrão nenhuma variável ativa a integração. A branch de revisão
+`codex/fatek-api-adapter` tem deploy automático Vercel desativado exclusivamente
+para ela em `git.deploymentEnabled`. As outras branches conservam o comportamento
+anterior. Validação remota para merge fica pendente da revisão conjunta. Sem novo
 domínio ou mudança de hospedagem nesta preparação. A hospedagem atual do código
 continua suportada; migrar para Cloudflare/R2 é uma etapa separada.
 
