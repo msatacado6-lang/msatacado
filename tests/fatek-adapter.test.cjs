@@ -81,11 +81,38 @@ test('the real legacy admin guard denies product media to visitors and buyers in
   Object.assign(process.env,{MS_DATA_DIR:folder,MS_COMMERCE_MODE:'LEGACY'});
   const legacy=require('../api.cjs'),handler=withIntegration(legacy),server=http.createServer(handler);
   await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;process.env.PORT=String(server.address().port);
-  const call=async(route,body,cookie)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json',...(cookie?{cookie}:{})},body:JSON.stringify(body)});return {status:r.status,cookie:r.headers.get('set-cookie')?.split(';')[0]};};
+  const call=async(route,body,cookie,method='POST')=>{const r=await fetch(base+'/api/'+route,{method,headers:{'Content-Type':'application/json',...(cookie?{cookie}:{})},...(method==='GET'?{}:{body:JSON.stringify(body)})});return {status:r.status,cookie:r.headers.get('set-cookie')?.split(';')[0]};};
   try{
     const buyer=await call('register',{name:'Buyer fixture',email:'fixture@example.test',password:'SyntheticPassword123!'});assert.equal(buyer.status,200);
     Object.assign(process.env,{MS_COMMERCE_MODE:'FATEK',MS_FATEK_PRODUCT_WRITES:'1',SUPABASE_URL:project,SUPABASE_PUBLISHABLE_KEY:config.publishableKey});
     assert.equal((await call('admin/product-media',{base64:'aGVsbG8='})).status,401);
     assert.equal((await call('admin/product-media',{base64:'aGVsbG8='},buyer.cookie)).status,403);
+    for(const [route,method] of [['admin/products','GET'],['admin/products','POST'],['admin/products/'+id,'GET'],['admin/products/'+id,'PATCH']]){
+      assert.equal((await call(route,{role:'admin',name:'Forged'},null,method)).status,401);
+      assert.equal((await call(route,{role:'admin',name:'Forged'},buyer.cookie,method)).status,403);
+    }
   }finally{await new Promise(r=>server.close(r));for(const key of names){if(saved[key]===undefined)delete process.env[key];else process.env[key]=saved[key];}fs.rmSync(folder,{recursive:true,force:true});}
+});
+
+test('cover stays in the gallery with one extra photo and duplicates are removed',()=>{
+  const p=mapProduct({id,name:'Photo piece',axes:[],imageUrl:'https://store.example/cover.webp',images:['https://store.example/extra.webp','https://store.example/cover.webp'],variants:[]});
+  assert.deepEqual(p.photos.map(p=>p.url),['https://store.example/cover.webp','https://store.example/extra.webp']);
+});
+test('editor detects incomplete/duplicate combinations before dispatch and can generate the missing matrix',()=>{
+  const vm=require('node:vm'),fs=require('node:fs');
+  const context=vm.createContext({document:{addEventListener:()=>{}}});
+  vm.runInContext(fs.readFileSync('dist/fatek-editor.js','utf8'),context);
+  const options=[{name:'Cor'},{name:'Tamanho'}],variants=[{values:['Preto','M']},{values:['Azul','G']}];
+  const matrix=context.editorMatrix(options,variants);
+  assert.deepEqual(JSON.parse(JSON.stringify(matrix.missing)),[['Preto','G'],['Azul','M']]);
+  assert.throws(()=>context.editorMatrix(options,[...variants,variants[0]]),/repetida/);
+  assert.throws(()=>context.editorMatrix(options,[{values:['Preto','']}]),/Preencha/);
+  assert.deepEqual(JSON.parse(JSON.stringify(context.editorMatrix(options,[]))),{options:[],missing:[]});
+});
+test('proxy distinguishes a rejected grade from uncertain writes and revision conflicts',async()=>{
+  const env={MS_FATEK_PRODUCT_WRITES:'1',FATEK_PRODUCT_KEY:'fprod_'+'b'.repeat(48),FATEK_STORE_ORIGIN:'https://store.example'};
+  const result=await productRequest('POST',null,{},env,async()=>Response.json({error:'INVALID_GRADE'},{status:422}));
+  assert.equal(result.status,422);assert.equal(result.body.code,'INVALID_GRADE');
+  const timeout=await productRequest('POST',null,{},env,async()=>{throw Error('Timeout');});
+  assert.equal(timeout.status,503);assert.equal(timeout.body.code,'PRODUCT_OUTCOME_UNKNOWN');
 });

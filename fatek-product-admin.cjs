@@ -18,7 +18,7 @@ async function productRequest(method, id, body, env = process.env, transport = f
     const value = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('Invalid upstream');
     if (!response.ok) return { status: response.status, body: {
-      error: response.status === 409 ? 'O produto mudou. Reabra o cadastro antes de salvar; preserve suas alterações.' : 'Não foi possível concluir o cadastro no ERP.',
+      error: value.error === 'INVALID_GRADE' ? 'Confira a grade, os preços por combinação e as variações com saldo.' : value.error === 'INVALID_PRODUCT' ? 'Confira os dados da peça antes de salvar.' : response.status === 409 ? 'O produto mudou. Reabra o cadastro antes de salvar; preserve suas alterações.' : 'Não foi possível concluir o cadastro no ERP.',
       code: /^[A-Z_]{1,64}$/.test(value.error) ? value.error : 'PRODUCT_WRITE_UNAVAILABLE',
     } };
     return { status: response.status, body: value };

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createStorefrontApi } from './vendor/storefront-api.ts';
 
 const messages = {
+  INVALID_PRODUCT: 'Confira os dados da peça antes de salvar.', INVALID_GRADE: 'Confira a grade: combinações completas, sem repetição e sem remover ou desativar variações com saldo.',
   PRODUCT_OUTCOME_UNKNOWN: 'Não foi possível confirmar o cadastro. Preserve os mesmos dados e reenvie para confirmar.', PRODUCT_CONFLICT: 'O produto mudou. Reabra o cadastro antes de salvar; suas alterações foram preservadas.', EDITOR_DISABLED: 'O cadastro pelo painel ainda precisa ser liberado pelo responsável.',
   LOGIN_REQUIRED: 'Entre na sua conta para continuar.', INVALID_CREDENTIALS: 'Entre novamente na sua conta.',
   CONNECTION_UNAVAILABLE: 'Conexão indisponível. Seu pedido foi preservado.', STORE_UNAVAILABLE: 'A integração da loja ainda não está disponível.',
@@ -27,7 +28,7 @@ export function mapProduct(product) {
   return {
     id: product.id, name: product.name, type: product.category || 'Outros', description: product.description || '',
     wash: product.axes.join(' × '), image: safeImage(product.imageUrl),
-    photos: product.images.map((url, i) => ({ id: String(i), url: safeImage(url) })),
+    photos: [...new Set([product.imageUrl, ...product.images].filter(Boolean).map(safeImage))].map((url, i) => ({ id: String(i), url })),
     variants: product.variants.map(v => ({
       size: v.id, label: v.values.filter(Boolean).join(' · ') || 'Única',
       // Missing quantity/price is not a zero-price product or unlimited stock.

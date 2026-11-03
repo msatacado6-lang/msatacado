@@ -21,9 +21,10 @@ module.exports=async(req,res)=>{
   if(!req.headers['content-type']?.startsWith('application/json'))fail(415,'Envie JSON.');
   // Vercel has a 4.5 MB request limit; browser uploads are resized before sending.
   const isPhoto=endpoint.endsWith('/photos')||endpoint==='/api/admin/home/photo'||endpoint==='/api/admin/product-media';
-  if(req.body!==undefined){body=typeof req.body==='string'?JSON.parse(req.body):req.body;}else{let raw='';for await(const c of req){raw+=c;if(Buffer.byteLength(raw)>(isPhoto?4000000:32768))fail(413,'Dados muito grandes.');}body=JSON.parse(raw||'{}');}
+  const productLimit=process.env.MS_COMMERCE_MODE==='FATEK'&&/^\/api\/admin\/products(?:\/[a-f0-9-]{36})?$/.test(endpoint)?524288:32768;
+  if(req.body!==undefined){body=typeof req.body==='string'?JSON.parse(req.body):req.body;}else{let raw='';for await(const c of req){raw+=c;if(Buffer.byteLength(raw)>(isPhoto?4000000:productLimit))fail(413,'Dados muito grandes.');}body=JSON.parse(raw||'{}');}
   if(!body||typeof body!=='object'||Array.isArray(body))fail(400,'Dados inválidos.');
-  if(Buffer.byteLength(JSON.stringify(body))>(isPhoto?4000000:32768))fail(413,'Dados muito grandes.');
+  if(Buffer.byteLength(JSON.stringify(body))>(isPhoto?4000000:productLimit))fail(413,'Dados muito grandes.');
  }
  if(endpoint==='/api/session'&&method==='GET')return json(200,await rpc('session',{},sessionToken));
  if(endpoint==='/api/categories'&&method==='GET')return json(200,await rpc('list',{},'','ms_categories'));

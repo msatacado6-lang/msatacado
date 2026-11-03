@@ -40,6 +40,21 @@ antes do envio: repetir o mesmo cadastro confirma o resultado sem duplicar.
 Uma edição antiga não sobrescreve uma mudança feita no ERP. Fotos básicas podem ser enviadas pelo painel e suas URLs são gravadas no ERP. O backend valida o arquivo, normaliza para WebP e usa o storage atual da loja, com chave somente no servidor. Parâmetros
 fiscais e demais campos avançados já existentes são preservados.
 
+O formulário exibe preços/custos específicos por combinação; em branco herda os
+valores da peça. Grade incompleta é apontada antes do envio: “Completar combinações”
+acrescenta as linhas faltantes sem saldo. Combinações não vendidas podem ficar
+inativas, respeitando o bloqueio do ERP para variações com saldo. É possível trocar
+a capa e remover referências às fotos, junto com o cadastro/revisão; isso não
+apaga objetos do storage. A vitrine inclui a capa entre as miniaturas.
+
+Enquanto aguarda gravação, os controles ficam bloqueados. Validação rejeitada
+na primeira criação permite corrigir os dados; resultado incerto conserva o
+mesmo corpo/UUID após fechar/reabrir, mesmo que uma nova tentativa perca permissão.
+O limite do corpo de cadastro é 512 KiB, até 500 combinações, também conferido
+antes de enviar. `422 INVALID_GRADE` significa grade rejeitada sem commit;
+conflito de revisão exige reabrir a edição. Nunca criar nova intenção para
+substituir um resultado incerto.
+
 Saldo é somente leitura no formulário conectado. Entradas e ajustes
 continuam no ERP nesta primeira etapa; não existe sincronização de dois saldos.
 Excluir produto ou alterar status de pedido pelo backend anterior é bloqueado
@@ -82,7 +97,12 @@ cliente tipado. `npm run check` confere sintaxe; `npm run test:fatek` verifica
 isolamento, configuração, DTO, paginação, perfil, incerteza de pedido e proxy
 restrito. `npm test` mantém as suítes anteriores, com bancos temporários.
 Puppeteer pode usar Chrome local por `PUPPETEER_EXECUTABLE_PATH`; não usar perfil
-ou cookies de produção nos testes. A homologação externa real continua pendente.
+ou cookies de produção nos testes. `node qa-fatek.cjs` cobre vitrine/galeria,
+formulário desktop/mobile, preço por combinação/herança, capa, grade incompleta,
+correção após rejeição, replay após resultado incerto/perda de permissão e bloqueio
+dos controles durante gravação. O backend real nega leitura/escrita administrativa
+a visitantes e compradores. O navegador usa transporte sintético; a homologação
+externa real continua pendente.
 
 Em rollback, pausar a conexão e a delegação de escrita no ERP antes do código.
 Não voltar ao banco antigo como fallback para falha de API. Preservar produtos,
