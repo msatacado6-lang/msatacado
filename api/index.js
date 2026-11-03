@@ -1,1 +1,1 @@
-module.exports=require('../cloud-api.cjs');
+module.exports=require('../integration-mode.cjs').withIntegration(require('../cloud-api.cjs'));

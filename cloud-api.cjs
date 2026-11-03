@@ -48,6 +48,7 @@ module.exports=async(req,res)=>{
  if(endpoint==='/api/orders'&&method==='POST')return json(201,await rpc('order_create',{items:body.items},sessionToken));
  if(endpoint.startsWith('/api/admin/')){
   const {user,adminAuthenticated}=await rpc('session',{},sessionToken);if(!user)fail(401,'Entre na sua conta para continuar.');if(user.role!=='admin'||!adminAuthenticated)fail(403,'Acesso exclusivo da administração.');
+  if(process.env.MS_COMMERCE_MODE==='FATEK'&&/^\/api\/admin\/products(?:\/[0-9a-f-]{36})?$/.test(endpoint)){const result=await require('./fatek-product-admin.cjs').productRequest(method,endpoint.split('/')[4],body);return json(result.status,result.body);}
   if(endpoint==='/api/admin/home'&&method==='PATCH')return json(200,await rpc('home_update',{eyebrow:clean(body.eyebrow,2,60),headline:clean(body.headline,2,80),highlight:clean(body.highlight,2,60),subtitle:clean(body.subtitle,5,220),ctaText:clean(body.ctaText,2,36),ctaHref:validHrefs.includes(body.ctaHref)?body.ctaHref:fail(400,'Destino inválido.')},sessionToken));
   if(endpoint==='/api/admin/home'&&method==='DELETE')return json(200,await rpc('home_reset',{},sessionToken));
   if(endpoint==='/api/admin/home/photo'&&method==='POST'){

@@ -56,6 +56,7 @@ module.exports=async function api(req,res){
  if(endpoint==='/api/orders'&&method==='GET'){auth();return json(200,db.prepare('SELECT * FROM orders WHERE user_id=? ORDER BY created DESC').all(user.id).map(o=>({...o,items:JSON.parse(o.items)})));}
  if(endpoint.startsWith('/api/admin/')){
   auth();if(user.role!=='admin'||user.access_scope!=='admin')fail(403,'Acesso exclusivo da administração.');
+  if(process.env.MS_COMMERCE_MODE==='FATEK'&&/^\/api\/admin\/products(?:\/[0-9a-f-]{36})?$/.test(endpoint)){const result=await require('./fatek-product-admin.cjs').productRequest(method,endpoint.split('/')[4],b);return json(result.status,result.body);}
   if(endpoint==='/api/admin/home'&&method==='PATCH'){
    const next={...readHome(),eyebrow:clean(b.eyebrow,2,60),headline:clean(b.headline,2,80),highlight:clean(b.highlight,2,60),subtitle:clean(b.subtitle,5,220),ctaText:clean(b.ctaText,2,36),ctaHref:validHrefs.includes(b.ctaHref)?b.ctaHref:fail(400,'Destino inválido.')};
    db.prepare("INSERT OR REPLACE INTO settings VALUES('home_banner',?)").run(JSON.stringify(next));return json(200,next);
