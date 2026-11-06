@@ -160,12 +160,8 @@ preservar fotos em R2, páginas públicas, SEO e navegação mobile. A entrada
 - No modo conectado, cotação, estoque e pedido seguem pelo ERP. As rotas legadas
   equivalentes permanecem bloqueadas e o painel de frete aponta para o ERP.
 - O cadastro com WhatsApp e o histórico de clientes permanecem. O acesso exige
-  senha válida no legado e usa Supabase Auth no modo conectado. A versão do ZIP
-  emitia sessão de comprador ao receber apenas um e-mail já cadastrado. Antes
-  de publicar a troca de backend, mapear contas legadas sem senha, definir
-  recuperação com verificação de titularidade e tratar as sessões de comprador
-  já emitidas pelo fluxo antigo. Não copiar hashes ou vincular contas somente
-  pela alegação de e-mail ou telefone.
+  senha válida no legado e usa Supabase Auth no modo conectado. A recuperação
+  verificada de contas antigas é descrita abaixo.
 - Foram restaurados os arquivos `20261031115850_shipping_melhor_envio.sql` e
   `20261102224102_passwordless_customers_phone.sql` com bytes e IDs do ZIP.
   Os rascunhos de IDs `20261031020000` e `20261102010000` equivalem aos
@@ -181,3 +177,53 @@ perfil, separação de acesso administrativo, RPCs privadas, frete gravado no
 pedido e baixa de estoque. O teste do handler Vercel usa respostas simuladas do
 Supabase e Melhor Envio. A aceitação no sandbox com credencial da loja e a
 homologação de Auth/SMTP no projeto real são etapas separadas.
+
+
+## Recuperação de contas antigas e troca de sessões
+
+A recuperação é própria do modo legado. O cliente solicita um código para o
+e-mail já cadastrado e informa o código junto com a nova senha. O servidor
+envia a mensagem somente ao endereço guardado no cadastro elegível. A resposta
+do pedido é igual para endereços conhecidos, desconhecidos e fora do fluxo.
+O código tem 144 bits aleatórios, vence em 15 minutos e o banco guarda apenas
+seu hash. Há limite por IP e intervalo de um minuto para reenvio por conta.
+
+A transação valida o código, consome-o uma vez, grava a senha no mesmo
+`ms_private.users.id` e revoga as sessões desse comprador. Nome, telefone,
+pedidos, frete e vínculos continuam associados ao mesmo ID. O cliente entra
+novamente com a nova senha. Administradores e contas que já têm senha ficam
+fora desta recuperação. Endereços ambíguos, fora da forma normalizada ou sem
+acesso à caixa de entrada devem seguir pelo atendimento com comprovação de
+titularidade. A operação não vincula automaticamente o histórico ao ERP ou
+a uma conta do Supabase Auth.
+
+A migration `20261106233044_recover_legacy_customer_accounts.sql` remove as
+sessões de comprador do formato anterior e impede que o backend antigo volte
+a gravá-las. Sessões com escopo administrativo de um administrador continuam
+válidas. O novo backend também recusa o cookie antigo de comprador antes de
+consultar perfil ou pedidos, mesmo se a migration ainda não tiver sido aplicada.
+
+### Publicação futura, mediante aceite
+
+1. Preparar um remetente autorizado da MS e credenciais SMTP próprias. A
+   integração requer TLS na porta 465 ou STARTTLS obrigatório na 587.
+   Configurar `MS_RECOVERY_FROM` e os quatro campos `MS_RECOVERY_SMTP_*` no
+   servidor. Homologar a entrega com uma conta de teste autorizada.
+2. Publicar primeiro o backend que emite e reconhece sessões novas, mantendo
+   `MS_LEGACY_RECOVERY_ENABLED=0`. A versão nova pode ler o esquema anterior
+   enquanto a recuperação está desabilitada. Após o tráfego antigo terminar,
+   aplicar a migration revisada. O aplicativo não envia e-mails em lote.
+3. Após validar as permissões do RPC e a entrega de e-mail no ambiente de
+   homologação, liberar a recuperação no modo legado com
+   `MS_LEGACY_RECOVERY_ENABLED=1`. A ativação do modo conectado é independente.
+
+Para pausar o fluxo, desligar a flag mantendo o backend que entende as sessões
+novas. Um rollback do frontend não deve restaurar cookies revogados. Para
+rollback do backend depois da migration, usar uma versão que suporte o formato
+novo de sessão. O backend anterior deixa de conseguir emitir sessão de comprador.
+Não restaurar as sessões antigas a partir de backup.
+
+Validação local com PostgreSQL 17 descartável verificou as 12 migrations,
+revogação, restrições do RPC e consumo atômico em duas tentativas simultâneas.
+O backend foi testado com transporte SMTP simulado e a tela com navegador de
+390 e 1440 px. A homologação real do remetente ainda precisa ocorrer.

@@ -1,4 +1,6 @@
 const crypto=require('node:crypto'),sharp=require('sharp'),shipping=require('./shipping.cjs'),r2=require('./r2.cjs');
+const {readSession,issueSession,sessionCookie}=require('./legacy-session.cjs');
+const recovery=require('./legacy-account-recovery.cjs');
 const shippingSecret=()=>process.env.MS_SECRET||process.env.SUPABASE_SERVICE_ROLE_KEY||'';
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const clean=(v,min,max)=>typeof v==='string'&&v.trim().length>=min&&v.trim().length<=max?v.trim():fail(400,'Confira os campos informados.');
@@ -23,7 +25,6 @@ module.exports=async(req,res)=>{
  if(process.env.NODE_ENV!=='production')allowed.push('http://127.0.0.1:'+(process.env.PORT||4173));
  if(!allowed.length)fail(503,'Domínio ainda não configurado.');
  if(req.headers.origin&&!allowed.includes(req.headers.origin))fail(403,'Origem inválida.');
- const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('ms_session='))?.slice(11),sessionToken=token?digest(token):'';
  if(endpoint.startsWith('/api/images/')&&method==='GET'){const file=endpoint.slice(12);if(!/^[a-f0-9-]{36}\.webp$/.test(file))fail(404,'Imagem não encontrada.');const r=await readPhoto(file);if(!r.ok)fail(404,'Imagem não encontrada.');res.writeHead(200,{'Content-Type':'image/webp','Cache-Control':'public, max-age=31536000, s-maxage=31536000, immutable','X-Content-Type-Options':'nosniff'});return res.end(Buffer.from(await r.arrayBuffer()));}
  let body={};if(!['GET','HEAD'].includes(method)){
   if(!req.headers['content-type']?.startsWith('application/json'))fail(415,'Envie JSON.');
@@ -35,14 +36,24 @@ module.exports=async(req,res)=>{
   if(Buffer.byteLength(JSON.stringify(body))>(isPhoto?4000000:productLimit))fail(413,'Dados muito grandes.');
  }
  if(['/api/sitemap','/sitemap.xml'].includes(endpoint)&&method==='GET'){const xml=require('./sitemap.cjs')(await rpc('products'));res.writeHead(200,{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'public, max-age=0, s-maxage=300'});return res.end(xml);}
- if(endpoint==='/api/session'&&method==='GET')return json(200,await rpc('session',{},sessionToken));
  if(endpoint==='/api/categories'&&method==='GET')return json(200,await rpc('list',{},'','ms_categories'));
  if(endpoint==='/api/products'&&method==='GET')return json(200,await rpc('products'));
  if(endpoint==='/api/home'&&method==='GET')return json(200,await rpc('home'));
  const clientIp=String((process.env.VERCEL?req.headers['x-vercel-forwarded-for']||req.socket?.remoteAddress:req.socket?.remoteAddress)||'unknown');
  if(endpoint==='/api/shipping/calculate'&&method==='POST'){const rate=await rpc('rate',{key:digest('ship:'+clientIp)});if(!rate.allowed)fail(429,'Muitas consultas de frete. Aguarde um minuto.');const [cfg,list]=await Promise.all([rpc('get_config',{},'','ms_shipping'),rpc('products')]);return json(200,await shipping.calculate(body,cfg||{},list||[],fail,shippingSecret()));}
+ if(['/api/account-recovery/start','/api/account-recovery/finish'].includes(endpoint)&&method==='POST'){
+  const result=await recovery.recover({action:endpoint.split('/').pop(),body,clientIp,rpc,hashPassword:hash,fail});
+  return json(result.status,result.data);
+ }
+ let sessionToken=readSession(req.headers.cookie);
+ let oldStaffSession;
+ if(sessionToken&&!sessionToken.startsWith('v2:')){
+  const oldSession=await rpc('session',{},sessionToken);
+  if(oldSession?.adminAuthenticated===true&&oldSession.user?.role==='admin')oldStaffSession=oldSession;
+  else{sessionToken='';res.setHeader('Set-Cookie',sessionCookie('',0));}
+ }
+ if(endpoint==='/api/session'&&method==='GET')return json(200,oldStaffSession??await rpc('session',{},sessionToken));
  if(endpoint==='/api/setup')fail(404,'Rota não encontrada.');
- const cookie=(token,age)=>`ms_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${age}${process.env.NODE_ENV==='production'?'; Secure':''}`;
  if(['/api/login','/api/register','/api/admin/login'].includes(endpoint)&&method==='POST'){
   const ip=process.env.VERCEL?req.headers['x-vercel-forwarded-for']||req.socket?.remoteAddress:req.socket?.remoteAddress;
   const rate=await rpc('rate',{key:digest(String(ip||'unknown'))});if(!rate.allowed)fail(429,'Muitas tentativas. Aguarde um minuto.');
@@ -52,14 +63,14 @@ module.exports=async(req,res)=>{
   if(endpoint==='/api/login'||endpoint==='/api/admin/login'){user=await rpc('login_lookup',{email});const stored=user?.password??hash('invalid-password');if(!/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(stored)||!crypto.timingSafeEqual(Buffer.from(hash(body.password,stored.split(':')[0])),Buffer.from(stored))||!user)fail(401,'E-mail ou senha incorretos.');}
   else user=await rpc('register',{id:crypto.randomUUID(),name:clean(body.name,2,100),email,password:hash(body.password),phone:cleanPhone(body.phone)});
   if(endpoint==='/api/admin/login'&&user.role!=='admin')fail(403,'Acesso exclusivo da administração.');
-  const t=crypto.randomBytes(32).toString('hex');await rpc('create_session',{token:digest(t),user_id:user.id,scope:endpoint==='/api/admin/login'?'admin':'customer',expires:Date.now()+86400000},sessionToken);res.setHeader('Set-Cookie',cookie(t,86400));return json(200,{user:{id:user.id,name:user.name,email:user.email,phone:user.phone,role:user.role}});
+  const {token,key}=issueSession();await rpc('create_session',{token:key,user_id:user.id,scope:endpoint==='/api/admin/login'?'admin':'customer',expires:Date.now()+86400000},sessionToken);res.setHeader('Set-Cookie',sessionCookie(token,86400));return json(200,{user:{id:user.id,name:user.name,email:user.email,phone:user.phone,role:user.role}});
  }
- if(endpoint==='/api/logout'&&method==='POST'){await rpc('logout',{},sessionToken);res.setHeader('Set-Cookie',cookie('',0));return json(200,{ok:true});}
+ if(endpoint==='/api/logout'&&method==='POST'){await rpc('logout',{},sessionToken);res.setHeader('Set-Cookie',sessionCookie('',0));return json(200,{ok:true});}
  if(endpoint==='/api/profile'&&method==='PATCH')return json(200,await rpc('profile',{name:clean(body.name,2,100),...(body.phone!==undefined?{phone:cleanPhone(body.phone)}:{})},sessionToken));
  if(endpoint==='/api/orders'&&method==='GET')return json(200,await rpc('orders',{},sessionToken));
  if(endpoint==='/api/orders'&&method==='POST'){const s=await rpc('session',{},sessionToken);if(!s.user)fail(401,'Entre na sua conta para continuar.');let ship=null;if(body.shipping!==undefined&&body.shipping!==null){const [cfg,list]=await Promise.all([rpc('get_config',{},'','ms_shipping'),rpc('products')]);ship=await shipping.resolveOrderShipping(body.shipping,cfg||{},body.items,list||[],fail,shippingSecret());}return json(201,await rpc('order_create',{items:body.items,shipping:ship},sessionToken));}
  if(endpoint.startsWith('/api/admin/')){
-  const {user,adminAuthenticated}=await rpc('session',{},sessionToken);if(!user)fail(401,'Entre na sua conta para continuar.');if(user.role!=='admin'||!adminAuthenticated)fail(403,'Acesso exclusivo da administração.');
+  const {user,adminAuthenticated}=oldStaffSession??await rpc('session',{},sessionToken);if(!user)fail(401,'Entre na sua conta para continuar.');if(user.role!=='admin'||!adminAuthenticated)fail(403,'Acesso exclusivo da administração.');
   if(process.env.MS_COMMERCE_MODE==='FATEK'&&endpoint==='/api/admin/product-media'&&method==='POST'){const result=await require('./fatek-product-media.cjs').uploadProductMedia(body);return json(result.status,result.body);}
   if(process.env.MS_COMMERCE_MODE==='FATEK'&&/^\/api\/admin\/products(?:\/[0-9a-f-]{36})?$/.test(endpoint)){const result=await require('./fatek-product-admin.cjs').productRequest(method,endpoint.split('/')[4],body);return json(result.status,result.body);}
   if(endpoint==='/api/admin/shipping'&&method==='GET')return json(200,shipping.adminView(await rpc('get_config',{},sessionToken,'ms_shipping'),shippingSecret()));
@@ -91,3 +102,4 @@ module.exports=async(req,res)=>{
  fail(404,'Rota não encontrada.');
  }catch(e){json(e.status||500,{error:e.status?e.message:'Não foi possível concluir. Tente novamente.'});}
 };
+module.exports.legacyRecoveryAvailable=recovery.enabled;

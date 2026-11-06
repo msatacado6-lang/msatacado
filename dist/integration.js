@@ -4,7 +4,7 @@ const integrationReady = (async () => {
   const response = await fetch('/api/integration', { cache: 'no-store', signal: AbortSignal.timeout(10000) });
   if (!response.ok) throw Error('Não foi possível conferir a conexão da loja. Tente novamente.');
   const config = await response.json();
-  if (config.mode === 'LEGACY') { integrationState.mode = 'LEGACY'; return; }
+  if (config.mode === 'LEGACY') { integrationState.mode = 'LEGACY'; integrationState.legacyRecovery = config.legacyRecovery === true; return; }
   if (config.mode !== 'FATEK') throw Error('Configuração da loja inválida.');
   const { createAdapter } = await import('/fatek-client.js');
   integrationState.client = createAdapter(config);

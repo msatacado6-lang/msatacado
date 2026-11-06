@@ -23,7 +23,8 @@ function withIntegration(legacy) {
     catch { return reply(503, { error: 'Integração ainda não configurada.', code: 'INTEGRATION_UNAVAILABLE' }); }
     const route = req.url.split('?')[0];
     if (route === '/api/integration') {
-      return req.method === 'GET' ? reply(200, config) : reply(405, { error: 'Método não permitido.' });
+      const legacyRecovery = config.mode === 'LEGACY' && legacy.legacyRecoveryAvailable?.() === true;
+      return req.method === 'GET' ? reply(200, legacyRecovery ? { ...config, legacyRecovery } : config) : reply(405, { error: 'Método não permitido.' });
     }
     if (config.mode === 'FATEK') {
       // Prevent direct requests from continuing to sell/edit against the old stock.
