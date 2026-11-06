@@ -147,14 +147,37 @@ Configuração prevista do Auth, **não aplicada**: Site URL
 recuperação e refresh no projeto real antes de considerar isso homologado.
 A prova TXT do domínio e as credenciais restritas permanecem pendentes.
 
-**Dependência externa antes de rollout:** recuperar o fonte do backend que gerou
-a versão publicada e das migrations `20261031115850_shipping_melhor_envio` e
-`20261102224102_passwordless_customers_phone`. Elas foram vistas no banco real,
-mas não estão no main consultado. Não inventar seu conteúdo, reaplicá-las ou
-sobrescrever o backend publicado usando apenas esta recuperação de frontend.
-Gabriel pode fornecer o fonte por arquivo ou repositório, sem novo deploy.
-`recover-live-migrations.sql` é uma consulta somente leitura das duas versões
-para recuperar seu SQL no projeto dedicado. Guardar a saída em privado e revisar
-possíveis segredos antes de versioná-la; a consulta não executa as migrations.
-Acesso à Vercel ajuda a inspecionar configuração, mas não garante o fonte completo.
-O gate de deploy da branch de revisão continua desligado; CI remota segue pendente.
+## Conciliação do backend e do histórico Supabase
+
+O ZIP de 03/11 inclui o backend publicado da Vercel, o módulo de frete e o SQL
+recuperado do Supabase. A conciliação usa a versão mais recente da `main` para
+preservar fotos em R2, páginas públicas, SEO e navegação mobile. A entrada
+`api/index.js` mantém a camada de integração e os cabeçalhos de segurança da PR.
+
+- No modo legado, a loja consulta o Melhor Envio, oferece retirada quando
+  configurada e recalcula o preço no servidor antes de persistir o pedido.
+  Ajustar frete exige sessão administrativa. O token fica no servidor.
+- No modo conectado, cotação, estoque e pedido seguem pelo ERP. As rotas legadas
+  equivalentes permanecem bloqueadas e o painel de frete aponta para o ERP.
+- O cadastro com WhatsApp e o histórico de clientes permanecem. O acesso exige
+  senha válida no legado e usa Supabase Auth no modo conectado. A versão do ZIP
+  emitia sessão de comprador ao receber apenas um e-mail já cadastrado. Antes
+  de publicar a troca de backend, mapear contas legadas sem senha, definir
+  recuperação com verificação de titularidade e tratar as sessões de comprador
+  já emitidas pelo fluxo antigo. Não copiar hashes ou vincular contas somente
+  pela alegação de e-mail ou telefone.
+- Foram restaurados os arquivos `20261031115850_shipping_melhor_envio.sql` e
+  `20261102224102_passwordless_customers_phone.sql` com bytes e IDs do ZIP.
+  Os rascunhos de IDs `20261031020000` e `20261102010000` equivalem aos
+  arquivos reais e saem da árvore para evitar aplicação duplicada. As demais
+  migrations versionadas ficam preservadas. Em qualquer ambiente existente,
+  conferir o histórico antes de aplicar mudanças.
+- A branch de revisão mantém o deploy Vercel bloqueado. O ZIP, o manifesto e
+  os dados de configuração externa ficam fora do commit.
+
+As 11 migrations foram exercitadas em PostgreSQL 17 descartável, com dados
+sintéticos de pedidos antigos e novos. Foram conferidos telefone no cadastro e
+perfil, separação de acesso administrativo, RPCs privadas, frete gravado no
+pedido e baixa de estoque. O teste do handler Vercel usa respostas simuladas do
+Supabase e Melhor Envio. A aceitação no sandbox com credencial da loja e a
+homologação de Auth/SMTP no projeto real são etapas separadas.

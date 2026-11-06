@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node server.cjs",
     "start": "node server.cjs",
-    "check": "node --check dist/app.js && node --check dist/account.js && node --check cloud-api.cjs && node --check integration-mode.cjs && node --check dist/integration.js && node --check dist/fatek-ui.js && node --check dist/fatek-editor.js && node --check fatek-product-admin.cjs && node --check fatek-product-media.cjs && node --check dist/shipping.js && node --check security-headers.cjs",
+    "check": "node --check dist/app.js && node --check dist/account.js && node --check cloud-api.cjs && node --check integration-mode.cjs && node --check dist/integration.js && node --check dist/fatek-ui.js && node --check dist/fatek-editor.js && node --check fatek-product-admin.cjs && node --check fatek-product-media.cjs && node --check dist/shipping.js && node --check security-headers.cjs && node --check shipping.cjs && node --check api.cjs && node --check server.cjs && node --check r2.cjs && node --check dist/seo-navigation.js",
     "dev:cloud": "node scripts/start-cloud-preview.cjs",
     "test": "node qa-catalog.cjs && node qa-cart.cjs && node qa-accounts.cjs && node qa-inventory.cjs && node qa-photos.cjs",
     "build:fatek": "node scripts/build-fatek.cjs",

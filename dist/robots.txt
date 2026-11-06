@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /msadm
+Disallow: /conta
+Disallow: /cadastro
+
+Sitemap: https://msatacado-rs.com.br/sitemap.xml

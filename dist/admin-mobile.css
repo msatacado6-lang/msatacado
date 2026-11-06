@@ -1,0 +1,61 @@
+.admin-menu-toggle{display:none}
+@media(max-width:800px){
+ .admin-route .workspace{min-height:100svh}
+ .admin-route .account-sidebar{padding:16px 20px;gap:4px;position:relative}
+ .admin-route .admin-menu-toggle{display:flex;align-items:center;gap:10px;min-height:48px;width:100%;padding:10px 12px;margin-bottom:8px;background:#1c1a17;color:#fff;border:0;font:600 15px Saira,sans-serif;text-align:left;cursor:pointer}
+ .admin-menu-toggle span{font-size:23px;line-height:1}
+ .admin-route .account-sidebar>strong{font-size:16px;overflow-wrap:anywhere}
+ .admin-route .account-sidebar>.eyebrow{font-size:10px}
+ .admin-route .account-sidebar #admin-navigation,.admin-route .sidebar-footer{display:none}
+ .admin-route .admin-menu-open #admin-navigation{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px 0 4px}
+ .admin-route .account-sidebar nav a{min-height:48px;align-items:center;padding:12px;font-size:13px}
+ .admin-route .admin-menu-open .sidebar-footer{display:flex}
+ .admin-route .sidebar-footer>a,.admin-route .logout{min-height:44px;display:flex;align-items:center;padding:10px 8px}
+ .admin-route .account-content{padding:24px 16px 40px}
+ .admin-route .account-head{margin-bottom:20px;padding-bottom:18px}
+ .admin-route .account-head h1{font-size:30px;overflow-wrap:anywhere}
+ .admin-route input:not([type=checkbox]):not([type=radio]),.admin-route select,.admin-route textarea{font-size:16px!important;min-height:48px}
+ .admin-route button,.admin-route .btn{min-height:44px}
+ .admin-route .btn{white-space:normal;text-align:center}
+ .admin-route .stats{gap:8px}
+ .admin-route .stats article{padding:14px 8px;min-width:0}
+ .admin-route .stats span{font-size:10px;letter-spacing:.5px}
+ .admin-route .stats strong{font-size:28px;overflow-wrap:anywhere}
+ .admin-route .dashboard-banner{padding:20px;gap:16px}
+ .admin-route .dashboard-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ .admin-route .dashboard-actions .btn{padding:12px 8px;font-size:12px}
+ .admin-route .status-form label,.admin-route .status-form button{width:100%}
+ .admin-route .order-heading>div,.admin-route .order-item>div{min-width:0;flex:1}
+ .admin-route .order-item img{flex-shrink:0}
+ .admin-route .order-card{padding:16px;min-width:0}
+ .admin-route .home-preview{min-height:0;grid-template-columns:1fr}
+ .admin-route .home-preview .hero-copy{padding:24px}
+ .admin-route .home-preview h1{font-size:30px}
+ .admin-route .home-preview .hero-photo{min-height:0;height:230px}
+ .admin-route .home-preview .hero-photo img{height:100%;width:100%;object-fit:cover}
+ .admin-route .home-preview .hero-label{max-width:calc(100% - 24px);left:12px;bottom:12px;padding:10px;gap:10px}
+ .admin-route .home-preview .hero-label strong{font-size:28px}
+ .admin-route .home-preview .hero-label div{font-size:11px}
+ .admin-route .home-preview .hero-label small{font-size:11px}
+ .admin-route .shipping-weights-grid{grid-template-columns:1fr}
+ .admin-route .shipping-toggle{min-height:44px;line-height:1.5}
+ .admin-route input[type=checkbox]{width:22px;height:22px;flex-shrink:0}
+ .admin-route .product-form-actions{gap:10px}
+ .admin-route .product-form-actions>.btn{flex:1;min-width:120px}
+ .admin-route .photo-editor{padding:12px}
+ .admin-route .photo-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .admin-route .photo-list article{min-width:0;max-width:none}
+ .admin-route .photo-list img{height:115px}
+ .admin-route .photo-list button{width:100%;font-size:13px}
+ .admin-route .photo-upload input{width:100%;min-width:0;font-size:13px!important}
+ .admin-route .stock-row button{min-height:44px;padding:8px}
+ .admin-route .product-modal{width:100%;max-width:100%;height:100dvh;max-height:100dvh;margin:0;padding:16px 16px max(20px,env(safe-area-inset-bottom));border:0;overscroll-behavior:contain}
+ .admin-route .product-modal .dialog-head{top:-16px;padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:20px;align-items:center}
+ .admin-route .product-modal .dialog-head h2{font-size:24px}
+ .admin-route .product-modal .dialog-head button{min-width:44px;font-size:28px}
+ .admin-route .product-modal .product-editor{grid-template-columns:1fr;gap:0}
+ .admin-route .product-modal .product-editor>img{display:none}
+ .admin-route .product-modal .product-form-actions{position:static;background:#fffcf7;padding:12px 0 max(12px,env(safe-area-inset-bottom));border-top:1px solid var(--line);z-index:2}
+ .admin-route .category-create{grid-template-columns:1fr}
+ .admin-route .category-create>.btn{width:100%}
+}

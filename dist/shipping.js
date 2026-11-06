@@ -4,7 +4,7 @@ let productShippingQuotes=null,productShippingError='',productShippingLoading=fa
 let adminShippingConfig=null;
 const formatCep=v=>{const d=String(v||'').replace(/\D/g,'').slice(0,8);return d.length>5?d.slice(0,5)+'-'+d.slice(5):d;};
 const formatBrl=n=>n==null?'A combinar':Number(n)===0?'Grátis':Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const daysLabel=d=>d==null?'Prazo a combinar':d===0?'Retirada local':d===1?'1 dia útil':d+' dias úteis';
+const daysLabel=(d,id)=>id==='pickup'?'Retirada local':d==null?'Prazo a combinar':d===0?'Hoje':d===1?'1 dia útil':d+' dias úteis';
 const currentCartSignature=()=>cart.map(x=>x.id+':'+x.size+':'+x.qty).join('|')+'@'+shippingCep.replace(/\D/g,'');
 
 function renderQuoteList(quotes,error,loading,selectable=false){
@@ -14,8 +14,8 @@ function renderQuoteList(quotes,error,loading,selectable=false){
  return `<div class="shipping-quotes" role="${selectable?'radiogroup':'list'}" aria-label="Opções de entrega">${quotes.map(q=>{
   const checked=selectable&&selectedShipping?.id===q.id;
   return selectable
-   ?`<label class="shipping-option ${checked?'selected':''}"><input type="radio" name="cart-shipping-choice" value="${esc(q.id)}" ${checked?'checked':''} data-select-shipping="${esc(q.id)}"><div class="shipping-option-main"><strong>${esc(q.name)}</strong><small>${esc(daysLabel(q.days))}${q.note?' · '+esc(q.note):''}</small></div><span class="shipping-price">${esc(formatBrl(q.price))}</span></label>`
-   :`<div class="shipping-option" role="listitem"><div class="shipping-option-main"><strong>${esc(q.name)}</strong><small>${esc(daysLabel(q.days))}${q.note?' · '+esc(q.note):''}</small></div><span class="shipping-price">${esc(formatBrl(q.price))}</span></div>`;
+   ?`<label class="shipping-option ${checked?'selected':''}"><input type="radio" name="cart-shipping-choice" value="${esc(q.id)}" ${checked?'checked':''} data-select-shipping="${esc(q.id)}"><div class="shipping-option-main"><strong>${esc(q.name)}</strong><small>${esc(daysLabel(q.days,q.id))}${q.note?' · '+esc(q.note):''}</small></div><span class="shipping-price">${esc(formatBrl(q.price))}</span></label>`
+   :`<div class="shipping-option" role="listitem"><div class="shipping-option-main"><strong>${esc(q.name)}</strong><small>${esc(daysLabel(q.days,q.id))}${q.note?' · '+esc(q.note):''}</small></div><span class="shipping-price">${esc(formatBrl(q.price))}</span></div>`;
  }).join('')}</div>${error?`<small class="shipping-note">${esc(error)}</small>`:''}`;
 }
 

@@ -3,21 +3,21 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url(7cHpv4kjgoGqM7EPCw.ttf) format('truetype');
+  src: url(7cHpv4kjgoGqM7EPCw.woff2) format('woff2');
 }
 @font-face {
   font-family: 'Barlow';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url(7cHqv4kjgoGqM7E3_-gc4A.ttf) format('truetype');
+  src: url(7cHqv4kjgoGqM7E3_-gc4A.woff2) format('woff2');
 }
 @font-face {
   font-family: 'Barlow';
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url(7cHqv4kjgoGqM7E30-8c4A.ttf) format('truetype');
+  src: url(7cHqv4kjgoGqM7E30-8c4A.woff2) format('woff2');
 }
 @font-face {
   font-family: 'Saira';
@@ -25,7 +25,7 @@
   font-weight: 600;
   font-stretch: normal;
   font-display: swap;
-  src: url(memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA74TFosg.ttf) format('truetype');
+  src: url(memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA74TFosg.woff2) format('woff2');
 }
 @font-face {
   font-family: 'Saira';
@@ -33,7 +33,7 @@
   font-weight: 700;
   font-stretch: normal;
   font-display: swap;
-  src: url(memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA773Fosg.ttf) format('truetype');
+  src: url(memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA773Fosg.woff2) format('woff2');
 }
 @font-face {
   font-family: 'Saira';
@@ -41,7 +41,7 @@
   font-weight: 800;
   font-stretch: normal;
   font-display: swap;
-  src: url(memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA79rFosg.ttf) format('truetype');
+  src: url(memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA79rFosg.woff2) format('woff2');
 }
 @font-face {
   font-family: 'Saira';
@@ -49,5 +49,5 @@
   font-weight: 900;
   font-stretch: normal;
   font-display: swap;
-  src: url(memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA7_PFosg.ttf) format('truetype');
+  src: url(memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA7_PFosg.woff2) format('woff2');
 }

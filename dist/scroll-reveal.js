@@ -22,7 +22,7 @@
       const kind=element.matches('.product-card, .hero-photo')?'image':element.matches('.section-head, .catalog-heading, .wholesale > div:first-child, .faq-layout > div:first-child')?'side':'rise';
       element.dataset.revealKind=kind;
       if (element.getBoundingClientRect().top < innerHeight) {
-        if(element.matches('.hero-copy > *, .hero-photo') && element.animate){
+        if(element.matches('.hero-copy > *') && element.animate){
           const index=element.matches('.hero-photo')?1:Array.from(element.parentElement.children).indexOf(element);
           element.animate([{opacity:0,transform:kind==='image'?'scale(1.035)':'translateY(28px)'},{opacity:1,transform:'none'}],{duration:850,delay:index*95,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'});
         }
