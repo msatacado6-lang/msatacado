@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node server.cjs",
     "start": "node server.cjs",
-    "check": "node --check dist/app.js && node --check dist/account.js && node --check cloud-api.cjs",
+    "check": "node --check dist/app.js && node --check dist/account.js && node --check dist/shipping.js && node --check shipping.cjs && node --check cloud-api.cjs",
     "dev:cloud": "node scripts/start-cloud-preview.cjs",
     "test": "node qa-catalog.cjs && node qa-cart.cjs && node qa-accounts.cjs && node qa-inventory.cjs && node qa-photos.cjs"
   },

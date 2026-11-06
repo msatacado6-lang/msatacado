@@ -18,6 +18,8 @@ Sessões usam cookies HttpOnly, SameSite=Strict e Secure em produção. Senhas c
 
 Fotos ficam no bucket privado ms-product-photos. A API entrega apenas imagens de catálogo em /api/images/<uuid>.webp; acesso administrativo é necessário para enviar, escolher capa ou remover. As imagens são convertidas em WebP e redimensionadas no navegador antes de enviar (limite de requisição da Vercel) e validadas novamente no servidor. Chaves não são gravadas em arquivos ou no frontend.
 
+Armazenamento das fotos: quando as variáveis R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY e R2_BUCKET existem na Vercel, a API (r2.cjs) grava e lê as fotos no Cloudflare R2, um bucket privado acessado só pela API. Se uma foto ainda não estiver no R2, a leitura cai no Supabase Storage, então a troca não derruba imagem nenhuma. Sem essas variáveis, tudo continua no Supabase. O endereço público não muda (/api/images/<uuid>.webp) e o banco não precisa de alteração. Como cada foto tem um nome único e nunca é reescrita, a resposta sai com cache de 1 ano (s-maxage), e a CDN da Vercel serve as repetições sem chamar a API. Para copiar as fotos que já existem: `node scripts/photos-to-r2.cjs`, com as chaves num arquivo local .env.r2 (ignorado pelo git e pelo deploy). O script não apaga nada do Supabase e pode ser rodado de novo, porque pula o que já foi copiado.
+
 ## Desenvolvimento
 
 `npm run dev:cloud` abre a prévia em 127.0.0.1:4173 usando os mesmos dados online. Requer login do Supabase CLI já configurado. `npm run dev` continua sendo a versão SQLite isolada para desenvolvimento, sem sincronização automática. Não use import-cloud.cjs novamente: a importação foi concluída e a função temporária foi removida.
