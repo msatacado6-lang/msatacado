@@ -116,17 +116,25 @@ async function calculate(body,rawCfg,productsList,fail,secret){
     method:'POST',
     headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+activeToken,'User-Agent':'MS Atacado (contato@msatacado.com.br)'},
     body:JSON.stringify({from:{postal_code:cfg.originCep},to:{postal_code:toCep},products:productsPayload,options:{receipt:false,own_hand:false}}),
-    signal:AbortSignal.timeout(15000)
+    signal:AbortSignal.timeout(15000),
+    redirect:'error'
    });
    const data=await r.json().catch(()=>null);
    if(!r.ok){
     carrierError=r.status===401||r.status===403?'Token do Melhor Envio inválido ou expirado.':'Não foi possível consultar as transportadoras no momento.';
    }else{
-    const list=Array.isArray(data)?data:data?[data]:[];
-    const carrierQuotes=list
-     .filter(s=>s&&!s.error&&Number(s.custom_price||s.price)>0)
-     .map(s=>({id:'me_'+String(s.id).slice(0,30),name:String((s.company?.name?s.company.name+' · ':'')+s.name).slice(0,100),company:String(s.company?.name||'Transportadora').slice(0,60),price:Number(Number(s.custom_price||s.price).toFixed(2)),days:Math.min(180,Math.max(0,Math.round(Number(s.custom_delivery_time||s.delivery_time||0))))}))
-     .sort((a,b)=>a.price-b.price);
+    const list=Array.isArray(data)?data:[];
+    const carrierQuotes=list.flatMap(service=>{
+     const rawPrice=service?.custom_price??service?.price;
+     const price=typeof rawPrice==='number'||typeof rawPrice==='string'&&rawPrice.trim()?Number(rawPrice):NaN;
+     const id=Number(service?.id),name=service?.name,company=service?.company?.name;
+     if(service?.error||!Number.isSafeInteger(id)||id<=0||!Number.isFinite(price)||price<0||
+        typeof name!=='string'||!name.trim()||typeof company!=='string'||!company.trim())return [];
+     const rawDays=service.custom_delivery_time??service.delivery_time??service.delivery_range?.max;
+     const days=rawDays==null||rawDays===''?NaN:Number(rawDays);
+     return [{id:'me_'+id,name:(company+' · '+name).slice(0,100),company:company.slice(0,60),
+      price:Number(price.toFixed(2)),days:Number.isInteger(days)&&days>=0?Math.min(180,days):null}];
+    }).sort((a,b)=>a.price-b.price);
     quotes.push(...carrierQuotes);
     if(!carrierQuotes.length)carrierError='Nenhuma transportadora disponível para o CEP informado.';
    }

@@ -19,4 +19,4 @@ begin
   'jsonb_build_object(''name'',c.name,''email'',c.email,''phone'',c.phone)'
  );
  execute definition;
-end $$;
+end $$;;

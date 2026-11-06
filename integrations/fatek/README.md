@@ -1,0 +1,229 @@
+# Loja conectada ao ERP
+
+Preparação para revisão em PR, sem publicação da loja ou ativação. O modo padrão continua `LEGACY`.
+O visual e o painel atual são preservados nesse modo. Nenhum banco existente
+é importado, apagado ou migrado por iniciar o código.
+
+## Uma fonte para cada informação
+
+- ERP: produtos, grade, custo/preço, saldo, clientes comerciais e novos pedidos.
+- Supabase da loja: Auth dos compradores, sessão e apresentação.
+- Painel da loja: apresentação e cadastro simples do mesmo produto do ERP.
+
+O modo `FATEK` usa os endpoints publicados da integração por uma Edge Function.
+Cadastro/login, confirmação, recuperação e refresh usam o SDK oficial Supabase.
+Senhas e chaves de serviço não são enviadas ao ERP. O login administrativo
+existente continua separado, conferido no servidor; uma conta de comprador não
+recebe esse acesso. Administradores do painel e usuários de Auth não são unidos
+por e-mail automaticamente.
+
+O catálogo lê todas as páginas e mantém os IDs de produto/variante, mesmo com
+cores diferentes no mesmo tamanho. Preços e disponibilidade vêm do ERP. O carrinho
+consulta entrega por CEP, retirada ou combinação conforme a política da API.
+Depois da cotação, registra o pedido e só então oferece o WhatsApp retornado.
+Nada abre/envia WhatsApp automaticamente. Pedido não reserva/baixa saldo nem
+comprova pagamento. Erros mantêm o carrinho; resultado incerto mantém a mesma
+chave/corpo, sem repetir automaticamente nem criar um novo pedido.
+
+## Cadastro pelos dois painéis
+
+`MS_FATEK_PRODUCT_WRITES=1` requer credencial própria `FATEK_PRODUCT_KEY` somente
+no servidor, origem fixa, plano compatível e liberação específica no ERP. Não
+usar a credencial de consulta do catálogo nem qualquer chave global. O backend
+primeiro confere a sessão administrativa existente e depois usa a credencial
+restrita. A API confere novamente workspace, responsável, grants atuais, escopo,
+origem, flag e plano; pode revogar a delegação sem mudar outros acessos.
+
+O formulário conectado cria/edita nome, categoria, descrição, preço/custo e
+grade com os IDs/revisão canônicos. Cadastros novos têm uma intenção persistida
+antes do envio: repetir o mesmo cadastro confirma o resultado sem duplicar.
+Uma edição antiga não sobrescreve uma mudança feita no ERP. Fotos básicas podem ser enviadas pelo painel e suas URLs são gravadas no ERP. O backend valida o arquivo, normaliza para WebP e usa o storage atual da loja, com chave somente no servidor. Parâmetros
+fiscais e demais campos avançados já existentes são preservados.
+
+O formulário exibe preços/custos específicos por combinação; em branco herda os
+valores da peça. Grade incompleta é apontada antes do envio: “Completar combinações”
+acrescenta as linhas faltantes sem saldo. Combinações não vendidas podem ficar
+inativas, respeitando o bloqueio do ERP para variações com saldo. É possível trocar
+a capa e remover referências às fotos, junto com o cadastro/revisão; isso não
+apaga objetos do storage. A vitrine inclui a capa entre as miniaturas.
+
+Enquanto aguarda gravação, os controles ficam bloqueados. Validação rejeitada
+na primeira criação permite corrigir os dados; resultado incerto conserva o
+mesmo corpo/UUID após fechar/reabrir, mesmo que uma nova tentativa perca permissão.
+O limite do corpo de cadastro é 512 KiB, até 500 combinações, também conferido
+antes de enviar. `422 INVALID_GRADE` significa grade rejeitada sem commit;
+conflito de revisão exige reabrir a edição. Nunca criar nova intenção para
+substituir um resultado incerto.
+
+Saldo é somente leitura no formulário conectado. Entradas e ajustes
+continuam no ERP nesta primeira etapa; não existe sincronização de dois saldos.
+Excluir produto ou alterar status de pedido pelo backend anterior é bloqueado
+no modo conectado. A API administrativa lista até 1.000 produtos; acima disso
+retorna erro explícito, sem truncar o catálogo. A vitrine pública é paginada.
+
+## Preparação conjunta
+
+1. Conferir projeto Supabase, domínio/origem e identidade dos administradores.
+2. Revisar as tabelas e migrations existentes; há Auth e estoque próprios da
+   versão anterior. Não aplicar `session-contract.sql` cegamente. Transformar
+   o contrato revisado em migration nova no projeto da loja, sem editar as
+   migrations aplicadas. Ele instala sessão atual/revogação e apresentação com
+   RLS; não importa senhas, não concede administrador e não altera estoque.
+3. Instalar a função `integrations/fatek/supabase/functions/storefront` no projeto
+   da loja. Sua configuração usa URL, chave pública, origem, slug `ms-atacado`,
+   origem Fatek `https://crm.fatek.solutions` e credencial privada da ponte. A
+   função trata autenticação internamente; configurar `verify_jwt=false` apenas
+   para essa função, conforme o contrato das chaves publishable.
+4. Revisar dados reais e mapear IDs antigos → IDs ERP em operação própria.
+   Nenhum preço, mínimo de seis peças, endereço, WhatsApp ou saldo do protótipo
+   é promovido automaticamente a regra real. Contas antigas precisam de plano
+   de migração para Supabase Auth; não reutilizar hashes/sessões incompatíveis.
+5. Validar cadastro, confirmação, reset, logout, sessão revogada, perfil,
+   colisões no CRM, pedidos repetidos, indisponibilidade, grade e frete sandbox.
+6. Só após aceite e autorização, configurar o modo conectado e a delegação de
+   produtos. O teste padrão atual da MS não concede o recurso de loja Pro.
+
+Por padrão nenhuma variável ativa a integração. A branch de revisão
+`codex/fatek-api-adapter` tem deploy automático Vercel desativado exclusivamente
+para ela em `git.deploymentEnabled`. As outras branches conservam o comportamento
+anterior. Validação remota para merge fica pendente da revisão conjunta. Sem novo
+domínio ou mudança de hospedagem nesta preparação. A hospedagem atual do código
+continua suportada; migrar para Cloudflare/R2 é uma etapa separada.
+
+## Validação local
+
+`npm run build:fatek` recompila `dist/fatek-client.js` a partir do adaptador e do
+cliente tipado. `npm run check` confere sintaxe; `npm run test:fatek` verifica
+isolamento, configuração, DTO, paginação, perfil, incerteza de pedido e proxy
+restrito. `npm test` mantém as suítes anteriores, com bancos temporários.
+Puppeteer pode usar Chrome local por `PUPPETEER_EXECUTABLE_PATH`; não usar perfil
+ou cookies de produção nos testes. `node qa-fatek.cjs` cobre vitrine/galeria,
+formulário desktop/mobile, preço por combinação/herança, capa, grade incompleta,
+correção após rejeição, replay após resultado incerto/perda de permissão e bloqueio
+dos controles durante gravação. O backend real nega leitura/escrita administrativa
+a visitantes e compradores. O navegador usa transporte sintético; a homologação
+externa real continua pendente.
+
+Em rollback, pausar a conexão e a delegação de escrita no ERP antes do código.
+Não voltar ao banco antigo como fallback para falha de API. Preservar produtos,
+pedidos, IDs e intentos existentes. Voltar a `LEGACY` é mudança de fonte de dados
+e exige reconciliação/autorização, não é um mecanismo automático de recuperação.
+
+Fotos enviadas antes de salvar o produto podem ficar sem referência se o cadastro for abandonado. Não apagar esses objetos automaticamente durante resultado incerto; definir limpeza com conferência de referências na operação de mídia. A migração desse upload para R2 preserva o contrato de URL e é separada.
+
+## Recuperação do site publicado — 03/11
+
+Origem confirmada: `https://msatacado-rs.com.br`; projeto público:
+`https://qdjjcewniayemmsiinec.supabase.co`. Isso identifica os destinos, sem
+credenciais, alteração do Auth ou ativação. O manifesto `site-recovery-20261103.json`
+guarda hashes dos assets públicos comparados com o main do repositório.
+
+Foram conciliados os ajustes de layout, telefone, fotos/estoque e as telas de
+frete com o formulário canônico da PR. O acesso integrado mantém e-mail/senha no
+Supabase; informar um e-mail sozinho não cria sessão nem concede acesso ao histórico.
+O WhatsApp é dado de contato: edição no CRM exige o perfil próprio e a revisão
+exibida; metadata do Auth não sobrescreve automaticamente uma ficha existente.
+Na versão SQLite de desenvolvimento, contatos ficam em tabela aditiva separada,
+compatível com o formato anterior de `users`; rollback preserva essa tabela.
+
+A calculadora do produto preserva a interface recuperada. No modo FATEK exige
+sessão, combinação selecionada e cotação canônica com o mínimo atual. Ela não
+cota contra o saldo antigo. O carrinho continua usando a revisão/recibo ERP;
+o painel de frete aponta para as configurações autorizadas do ERP. A interface
+legada recuperada de frete ainda depende de conciliar o backend original.
+
+`security-headers.cjs` é a fonte da política servida localmente e registrada em
+`vercel.json`. Permite conexões somente à própria origem e ao projeto Supabase
+acima, imagens da própria origem/projeto/CRM e o hash exato do bootstrap inline.
+Não libera wildcard, scripts inline genéricos ou unsafe-eval. Uma mudança de
+projeto ou outro provedor de imagens exige revisar a lista de destinos e os
+testes. O teste de navegador confere o SDK real com CSP efetiva e transporte
+sintético, inclusive bloqueio de destino não aprovado.
+
+Configuração prevista do Auth, **não aplicada**: Site URL
+`https://msatacado-rs.com.br/`, redirects exatos
+`https://msatacado-rs.com.br/#conta` e
+`https://msatacado-rs.com.br/#conta/nova-senha`. Conferir SMTP, confirmação,
+recuperação e refresh no projeto real antes de considerar isso homologado.
+A prova TXT do domínio e as credenciais restritas permanecem pendentes.
+
+## Conciliação do backend e do histórico Supabase
+
+O ZIP de 03/11 inclui o backend publicado da Vercel, o módulo de frete e o SQL
+recuperado do Supabase. A conciliação usa a versão mais recente da `main` para
+preservar fotos em R2, páginas públicas, SEO e navegação mobile. A entrada
+`api/index.js` mantém a camada de integração e os cabeçalhos de segurança da PR.
+
+- No modo legado, a loja consulta o Melhor Envio, oferece retirada quando
+  configurada e recalcula o preço no servidor antes de persistir o pedido.
+  Ajustar frete exige sessão administrativa. O token fica no servidor.
+- No modo conectado, cotação, estoque e pedido seguem pelo ERP. As rotas legadas
+  equivalentes permanecem bloqueadas e o painel de frete aponta para o ERP.
+- O cadastro com WhatsApp e o histórico de clientes permanecem. O acesso exige
+  senha válida no legado e usa Supabase Auth no modo conectado. A recuperação
+  verificada de contas antigas é descrita abaixo.
+- Foram restaurados os arquivos `20261031115850_shipping_melhor_envio.sql` e
+  `20261102224102_passwordless_customers_phone.sql` com bytes e IDs do ZIP.
+  Os rascunhos de IDs `20261031020000` e `20261102010000` equivalem aos
+  arquivos reais e saem da árvore para evitar aplicação duplicada. As demais
+  migrations versionadas ficam preservadas. Em qualquer ambiente existente,
+  conferir o histórico antes de aplicar mudanças.
+- A branch de revisão mantém o deploy Vercel bloqueado. O ZIP, o manifesto e
+  os dados de configuração externa ficam fora do commit.
+
+As 11 migrations foram exercitadas em PostgreSQL 17 descartável, com dados
+sintéticos de pedidos antigos e novos. Foram conferidos telefone no cadastro e
+perfil, separação de acesso administrativo, RPCs privadas, frete gravado no
+pedido e baixa de estoque. O teste do handler Vercel usa respostas simuladas do
+Supabase e Melhor Envio. A aceitação no sandbox com credencial da loja e a
+homologação de Auth/SMTP no projeto real são etapas separadas.
+
+
+## Recuperação de contas antigas e troca de sessões
+
+A recuperação é própria do modo legado. O cliente solicita um código para o
+e-mail já cadastrado e informa o código junto com a nova senha. O servidor
+envia a mensagem somente ao endereço guardado no cadastro elegível. A resposta
+do pedido é igual para endereços conhecidos, desconhecidos e fora do fluxo.
+O código tem 144 bits aleatórios, vence em 15 minutos e o banco guarda apenas
+seu hash. Há limite por IP e intervalo de um minuto para reenvio por conta.
+
+A transação valida o código, consome-o uma vez, grava a senha no mesmo
+`ms_private.users.id` e revoga as sessões desse comprador. Nome, telefone,
+pedidos, frete e vínculos continuam associados ao mesmo ID. O cliente entra
+novamente com a nova senha. Administradores e contas que já têm senha ficam
+fora desta recuperação. Endereços ambíguos, fora da forma normalizada ou sem
+acesso à caixa de entrada devem seguir pelo atendimento com comprovação de
+titularidade. A operação não vincula automaticamente o histórico ao ERP ou
+a uma conta do Supabase Auth.
+
+A migration `20261106233044_recover_legacy_customer_accounts.sql` remove as
+sessões de comprador do formato anterior e impede que o backend antigo volte
+a gravá-las. Sessões com escopo administrativo de um administrador continuam
+válidas. O novo backend também recusa o cookie antigo de comprador antes de
+consultar perfil ou pedidos, mesmo se a migration ainda não tiver sido aplicada.
+
+### Publicação futura, mediante aceite
+
+1. Preparar um remetente autorizado da MS e credenciais SMTP próprias. A
+   integração requer TLS na porta 465 ou STARTTLS obrigatório na 587.
+   Configurar `MS_RECOVERY_FROM` e os quatro campos `MS_RECOVERY_SMTP_*` no
+   servidor. Homologar a entrega com uma conta de teste autorizada.
+2. Publicar primeiro o backend que emite e reconhece sessões novas, mantendo
+   `MS_LEGACY_RECOVERY_ENABLED=0`. A versão nova pode ler o esquema anterior
+   enquanto a recuperação está desabilitada. Após o tráfego antigo terminar,
+   aplicar a migration revisada. O aplicativo não envia e-mails em lote.
+3. Após validar as permissões do RPC e a entrega de e-mail no ambiente de
+   homologação, liberar a recuperação no modo legado com
+   `MS_LEGACY_RECOVERY_ENABLED=1`. A ativação do modo conectado é independente.
+
+Para pausar o fluxo, desligar a flag mantendo o backend que entende as sessões
+novas. Um rollback do frontend não deve restaurar cookies revogados. Para
+rollback do backend depois da migration, usar uma versão que suporte o formato
+novo de sessão. O backend anterior deixa de conseguir emitir sessão de comprador.
+Não restaurar as sessões antigas a partir de backup.
+
+Validação local com PostgreSQL 17 descartável verificou as 12 migrations,
+revogação, restrições do RPC e consumo atômico em duas tentativas simultâneas.
+O backend foi testado com transporte SMTP simulado e a tela com navegador de
+390 e 1440 px. A homologação real do remetente ainda precisa ocorrer.

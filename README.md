@@ -1,6 +1,8 @@
 # MS Atacado — e-commerce
 
-Loja: https://msatacado-loja.vercel.app
+Domínio informado da loja: https://msatacado-rs.com.br
+
+Esta PR prepara a próxima versão; a recuperação do frontend e as dependências do backend estão descritas em [integração Fatek](integrations/fatek/README.md).
 
 Frontend HTML/CSS/JavaScript, API Node na Vercel, banco Postgres e fotos no Supabase. A identidade visual usa os arquivos oficiais da MS, Saira/Barlow e as cores da marca.
 
@@ -30,3 +32,7 @@ Use a raiz deste repositório na Vercel. A configuração está em vercel.json; 
 ## Verificação
 
 npm run check verifica sintaxe. npm test executa testes de contas, estoque e fotos usando bancos temporários; os testes de interface requerem Puppeteer no ambiente de desenvolvimento. O banco real não é usado nesses testes.
+
+## Integração ERP em preparação
+
+A adaptação opcional mantém o modo atual como padrão. Veja [contrato, limites e validação](integrations/fatek/README.md). A conexão real e a escrita de produtos continuam desligadas até o aceite conjunto.

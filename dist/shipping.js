@@ -3,9 +3,9 @@ let cartShippingQuotes=null,cartShippingError='',cartShippingLoading=false,selec
 let productShippingQuotes=null,productShippingError='',productShippingLoading=false,productShippingFor='';
 let adminShippingConfig=null;
 const formatCep=v=>{const d=String(v||'').replace(/\D/g,'').slice(0,8);return d.length>5?d.slice(0,5)+'-'+d.slice(5):d;};
-const formatBrl=n=>Number(n)===0?'Grátis':Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const daysLabel=d=>!d?'Retirada local':d===1?'1 dia útil':d+' dias úteis';
-const currentCartSignature=()=>cart.map(x=>x.id+':'+x.qty).join('|')+'@'+shippingCep.replace(/\D/g,'');
+const formatBrl=n=>n==null?'A combinar':Number(n)===0?'Grátis':Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const daysLabel=(d,id)=>id==='pickup'?'Retirada local':d==null?'Prazo a combinar':d===0?'Hoje':d===1?'1 dia útil':d+' dias úteis';
+const currentCartSignature=()=>cart.map(x=>x.id+':'+x.size+':'+x.qty).join('|')+'@'+shippingCep.replace(/\D/g,'');
 
 function renderQuoteList(quotes,error,loading,selectable=false){
  if(loading)return '<p class="shipping-status" role="status">Calculando opções de entrega…</p>';
@@ -14,19 +14,21 @@ function renderQuoteList(quotes,error,loading,selectable=false){
  return `<div class="shipping-quotes" role="${selectable?'radiogroup':'list'}" aria-label="Opções de entrega">${quotes.map(q=>{
   const checked=selectable&&selectedShipping?.id===q.id;
   return selectable
-   ?`<label class="shipping-option ${checked?'selected':''}"><input type="radio" name="cart-shipping-choice" value="${esc(q.id)}" ${checked?'checked':''} data-select-shipping="${esc(q.id)}"><div class="shipping-option-main"><strong>${esc(q.name)}</strong><small>${esc(daysLabel(q.days))}${q.note?' · '+esc(q.note):''}</small></div><span class="shipping-price">${esc(formatBrl(q.price))}</span></label>`
-   :`<div class="shipping-option" role="listitem"><div class="shipping-option-main"><strong>${esc(q.name)}</strong><small>${esc(daysLabel(q.days))}${q.note?' · '+esc(q.note):''}</small></div><span class="shipping-price">${esc(formatBrl(q.price))}</span></div>`;
+   ?`<label class="shipping-option ${checked?'selected':''}"><input type="radio" name="cart-shipping-choice" value="${esc(q.id)}" ${checked?'checked':''} data-select-shipping="${esc(q.id)}"><div class="shipping-option-main"><strong>${esc(q.name)}</strong><small>${esc(daysLabel(q.days,q.id))}${q.note?' · '+esc(q.note):''}</small></div><span class="shipping-price">${esc(formatBrl(q.price))}</span></label>`
+   :`<div class="shipping-option" role="listitem"><div class="shipping-option-main"><strong>${esc(q.name)}</strong><small>${esc(daysLabel(q.days,q.id))}${q.note?' · '+esc(q.note):''}</small></div><span class="shipping-price">${esc(formatBrl(q.price))}</span></div>`;
  }).join('')}</div>${error?`<small class="shipping-note">${esc(error)}</small>`:''}`;
 }
 
 function productShippingBox(p){
- const simQty=Math.max(quantity||1,6);
+ if(usesFatek()&&!integrationState.info?.store.policy.shippingEnabled)return '<p class="shipping-note">Confira as opções de recebimento na revisão do pedido.</p>';
+ const simQty=Math.max(quantity||1,minimumPieces());
  const showQuotes=productShippingFor===p.id?productShippingQuotes:null;
  const showErr=productShippingFor===p.id?productShippingError:'';
  return `<div class="shipping-box" data-product-shipping="${esc(p.id)}"><div class="shipping-head"><span>FRETE E PRAZO</span><small>Simulação para <b data-ship-qty>${simQty}</b> peças</small></div><div class="shipping-form"><input type="text" inputmode="numeric" maxlength="9" placeholder="Digite seu CEP (00000-000)" value="${esc(formatCep(shippingCep))}" aria-label="CEP para cálculo de frete" data-cep-input="product"><button type="button" class="btn outline" data-calc-shipping="product" data-product-id="${esc(p.id)}" ${productShippingLoading?'disabled':''}>${productShippingLoading?'Calculando…':'Calcular'}</button></div><div data-shipping-results="product">${renderQuoteList(showQuotes,showErr,productShippingLoading,false)}</div></div>`;
 }
 
 function cartShippingBox(){
+ if(usesFatek())return '';
  if(cartShippingSignature&&cartShippingSignature!==currentCartSignature()){
   cartShippingQuotes=null;cartShippingError='';selectedShipping=null;cartShippingSignature='';
  }
@@ -45,6 +47,7 @@ function orderShippingBadge(o){
 }
 
 async function runShippingCalc(mode,productId){
+ if(usesFatek()&&mode!=='product')return;
  const input=document.querySelector(`[data-cep-input="${mode}"]`);
  const rawCep=(input?input.value:shippingCep).replace(/\D/g,'');
  if(rawCep.length!==8){
@@ -74,8 +77,14 @@ async function runShippingCalc(mode,productId){
   const box=document.querySelector('[data-shipping-results="product"]');
   if(box)box.innerHTML=renderQuoteList(null,'',true,false);
   try{
-   const simQty=Math.max(quantity||1,6);
-   const res=await api('shipping/calculate','POST',{cep:rawCep,items:[{id:productId,qty:simQty}]});
+   const simQty=Math.max(quantity||1,minimumPieces());
+   let res;
+   if(usesFatek()){
+    if(!selectedSize)throw Error('Escolha a cor e o tamanho antes de consultar a entrega.');
+    const session=await api('session');if(!session.user)throw Error('Entre na sua conta para consultar a entrega.');
+    const quote=await integrationState.client.quote({items:[{productId,variantId:selectedSize,quantity:simQty}],delivery:{kind:'DELIVERY',postalCode:rawCep}});
+    res={quotes:quote.options,carrierError:''};
+   }else res=await api('shipping/calculate','POST',{cep:rawCep,items:[{id:productId,qty:simQty}]});
    productShippingQuotes=res.quotes||[];
    productShippingError=res.carrierError||'';
   }catch(err){
@@ -116,7 +125,7 @@ document.addEventListener('click',e=>{
  const qtyBtn=e.target.closest('[data-qty]');
  if(qtyBtn){
   const el=document.querySelector('[data-ship-qty]');
-  if(el)setTimeout(()=>{el.textContent=String(Math.max(quantity||1,6));},0);
+  if(el)setTimeout(()=>{el.textContent=String(Math.max(quantity||1,minimumPieces()));},0);
  }
 });
 document.addEventListener('change',e=>{
@@ -131,6 +140,7 @@ document.addEventListener('change',e=>{
 document.addEventListener('submit',async e=>{
  const form=e.target;
  if(!form.matches('[data-shipping-admin-form]'))return;
+ if(usesFatek()){e.preventDefault();return;}
  e.preventDefault();
  const button=form.querySelector('[type="submit"]'),error=form.querySelector('.form-error');
  button.disabled=true;error.textContent='';
